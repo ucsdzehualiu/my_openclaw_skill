@@ -1,0 +1,16 @@
+{
+  "name": "free-web-search-js",
+  "version": "28.0.0",
+  "type": "module",
+  "description": "Playwright 联网搜索，国内Bing/搜狗，海外DDG，自动抓取，零 API Key",
+  "scripts": {
+    "search": "node scripts/search.js",
+    "fetch": "node scripts/fetch.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "commander": "^12.0.0",
+    "iconv-lite": "^0.6.3",
+    "playwright": "^1.52.0"
+  }
+}
