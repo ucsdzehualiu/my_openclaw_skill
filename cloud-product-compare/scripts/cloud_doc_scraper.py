@@ -576,30 +576,53 @@ async def scrape_side(context, label: str, doc_url: str, changelog_url: str,
 def build_markdown(product_name: str, aliyun: dict, huawei: dict) -> str:
     now = datetime.now().strftime("%Y-%m-%d")
     lines = [
-        f"# 竞品分析原始资料：{product_name}",
+        f"# 云产品文档对比：{product_name}",
         f"> 抓取时间：{now}",
         f"> 阿里云：目录 {aliyun['toc_total']} 页，本次抓取 {len(aliyun['pages'])} 页",
         f"> 华为云：目录 {huawei['toc_total']} 页，本次抓取 {len(huawei['pages'])} 页",
-        "", "**给 AI 的指令：** 基于以下官方文档原文，分析两款产品的真实差异。",
-        "重点挖掘：关键指标的数字差距、一方有而另一方没有的能力、相同功能的成熟度差异、近期迭代方向的分歧。",
-        "无差异或差异不明显的维度直接略过，不要凑字数。", "", "---", "",
+        "",
+        "## 快速对比表格",
+        "",
+        "基于抓取的官方文档，以下是两款产品的关键信息对比：",
+        "",
+        "| 对比维度 | 阿里云 | 华为云 |",
+        "|---------|--------|--------|",
+        "| 产品名称 | " + (aliyun['pages'][0][0] if aliyun['pages'] else "N/A") + " | " + (huawei['pages'][0][0] if huawei['pages'] else "N/A") + " |",
+        "| 文档完整度 | " + str(len(aliyun['pages'])) + " 页核心文档 | " + str(len(huawei['pages'])) + " 页核心文档 |",
+        "| 更新日志 | " + ("✅ 已抓取" if aliyun['changelog'] else "❌ 未获取") + " | " + ("✅ 已抓取" if huawei['changelog'] else "❌ 未获取") + " |",
+        "",
+        "> **说明**：以上为自动生成的基础对比框架，详细差异需结合下方原文进行人工分析。",
+        "",
+        "---",
+        "",
+        "## 原始文档内容",
+        "",
+        "**使用建议**：将以下官方文档原文提供给 AI 工具，进行深度对比分析。",
+        "",
+        "**分析重点**：",
+        "- 关键指标的数字差距（性能上限、规格范围、SLA 等）",
+        "- 一方有而另一方没有的核心能力",
+        "- 相同功能的实现路径或成熟度差异",
+        "- 近期更新动态的差异",
+        "",
+        "---", "",
     ]
     for side in [aliyun, huawei]:
         lines += [f"# {side['label']}", ""]
         if not side["pages"]:
-            lines.append(f"> [WARN] Fetch failed, visit manually: {side['doc_url']}")
+            lines.append(f"> [WARN] 抓取失败，请手动访问: {side['doc_url']}")
         else:
             for title, url, content in side["pages"]:
-                lines += [f"## {side['label']} · {title}", f"> Source: {url}", ""]
+                lines += [f"## {side['label']} · {title}", f"> 来源: {url}", ""]
                 body = content[:8000]
                 if len(content) > 8000:
-                    body += "\n\n[...truncated, see source link...]"
+                    body += "\n\n[...内容过长已截断，完整内容见源链接...]"
                 lines += [body, "", "---", ""]
-        lines += [f"## {side['label']} · Changelog", f"> Source: {side['changelog_url']}", ""]
+        lines += [f"## {side['label']} · 更新日志", f"> 来源: {side['changelog_url']}", ""]
         cl = side["changelog"][:6000]
         if len(side["changelog"]) > 6000:
-            cl += "\n\n[...truncated...]"
-        lines += [cl or f"> [WARN] Fetch failed, visit manually: {side['changelog_url']}", "", "---", ""]
+            cl += "\n\n[...内容过长已截断...]"
+        lines += [cl or f"> [WARN] 抓取失败，请手动访问: {side['changelog_url']}", "", "---", ""]
     return "\n".join(lines)
 
 # ─── 主入口 ───────────────────────────────────────────────────────────────────

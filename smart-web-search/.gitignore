@@ -1,0 +1,10 @@
+node_modules/
+package-lock.json
+*.png
+*.html
+test_*.md
+.browser-endpoint
+.idea/
+__pycache__/
+*.pyc
+.venv/

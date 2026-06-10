@@ -1,0 +1,16 @@
+{
+  "name": "smart-web-search",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "智能联网搜索，国内外自动切换，Query 意图改写，双层内容抓取",
+  "scripts": {
+    "search": "node scripts/search.js",
+    "fetch": "node scripts/fetch.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "commander": "^12.0.0",
+    "iconv-lite": "^0.6.3",
+    "playwright": "^1.52.0"
+  }
+}
