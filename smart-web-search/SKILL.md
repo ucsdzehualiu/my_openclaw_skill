@@ -1,5 +1,5 @@
 ---
-name: smart-web-search
+name: free-smart-web-search
 description: 智能联网搜索工具，国内外自动切换引擎，Query 意图优化，双层内容抓取，适合中文和英文查询
 version: 1.0.0
 author: smart-web-search
