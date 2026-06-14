@@ -255,6 +255,88 @@ async function searchBingHtml(query, max) {
   return out.slice(0, max);
 }
 
+// ==================== Bing Headed (Playwright 有头浏览器兜底) ====================
+async function searchBingHeaded(query, max) {
+  console.error(`[Bing:headed] "${query}" (启动有头浏览器)`);
+  const out = [], seen = new Set();
+  let browser;
+  try {
+    const { chromium } = await import('playwright');
+    browser = await chromium.launch({ headless: false });
+    const ctx = await browser.newContext({
+      userAgent: UA,
+      locale: 'zh-CN',
+      viewport: { width: 1280, height: 800 },
+    });
+    await ctx.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    });
+    // 屏蔽图片/字体/媒体以加速
+    await ctx.route('**/*', (route) => {
+      const t = route.request().resourceType();
+      if (t === 'image' || t === 'font' || t === 'media') return route.abort();
+      route.continue();
+    });
+
+    const page = await ctx.newPage();
+
+    // 关键：先访问首页拿 cookies + 建立 session，再搜索
+    console.error('[Bing:headed] warm-up: 访问首页建立 session');
+    await page.goto('https://cn.bing.com/', { waitUntil: 'commit', timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    const url = 'https://cn.bing.com/search?' + querystring.stringify({ q: query });
+    await page.goto(url, { waitUntil: 'commit', timeout: 20000 });
+    try {
+      await page.waitForSelector('li.b_algo h2 a', { timeout: 12000 });
+    } catch {
+      console.error('[Bing:headed] 等待 li.b_algo 超时，直接采集当前 DOM');
+    }
+    console.error(`[Bing:headed] final URL: ${page.url()}`);
+    console.error(`[Bing:headed] title: ${await page.title()}`);
+
+    const items = await page.$$eval('li.b_algo', els =>
+      els.map(el => {
+        const a = el.querySelector('h2 a');
+        const title = a?.textContent?.trim() || '';
+        const href = a?.href || '';
+        const snippet = el.querySelector('.b_caption p, .b_caption')?.textContent?.trim() || '';
+        return { title, href, snippet };
+      })
+    );
+
+    for (const { title, href, snippet } of items) {
+      const url = normalizeUrl(href);
+      if (title && url?.startsWith('http') && !seen.has(url.toLowerCase())) {
+        seen.add(url.toLowerCase());
+        out.push({ title, url, snippet });
+      }
+    }
+
+    console.error(`[Bing:headed] ${out.length} 条`);
+  } catch (e) {
+    console.error(`[Bing:headed] 错误: ${e.message.split('\n')[0]}`);
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+  }
+  return out.slice(0, max);
+}
+
+// 判断结果是否看起来像"品牌首页"（URL 路径过浅）
+function looksLikeBrandPages(results) {
+  if (results.length < 3) return false;
+  const shallow = results.filter(r => {
+    try {
+      const u = new URL(r.url);
+      const pathDepth = u.pathname.split('/').filter(Boolean).length;
+      return pathDepth <= 1; // 只有 / 或 /xxx，没有更深路径
+    } catch {
+      return false;
+    }
+  });
+  return shallow.length >= Math.min(4, results.length); // >= 4 条或 >= 80% 是首页
+}
+
 // ==================== DDG HTML (HTTP) ====================
 async function searchDDGHtml(query, max) {
   console.error(`[DDG:html] "${query}"`);
@@ -373,6 +455,14 @@ async function main() {
     if (out.length === 0) {
       console.error('[策略] Bing 为空，兜底 → DDG HTML');
       add(await searchDDGHtml(query, max));
+    } else if (looksLikeBrandPages(out)) {
+      console.error(`[策略] 检测到结果疑似品牌首页堆叠（${out.length} 条多为根路径），切换有头浏览器重试`);
+      out.length = 0; seen.clear();
+      add(await searchBingHeaded(query, max));
+      if (out.length === 0) {
+        console.error('[策略] 有头浏览器为空，回退 DDG');
+        add(await searchDDGHtml(query, max));
+      }
     }
   } else {
     console.error('[策略] 海外 → DDG HTML');
