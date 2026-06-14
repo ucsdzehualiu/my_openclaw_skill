@@ -1,7 +1,7 @@
 ---
 name: free-smart-web-search
 description: 智能联网搜索工具，国内外自动切换引擎，Query 意图优化，双层内容抓取，适合中文和英文查询
-version: 1.0.0
+version: 1.0.2
 author: smart-web-search
 trigger_keywords:
   - 搜索
@@ -45,11 +45,13 @@ tools:
 
 ## 核心特性
 
-### 1. 区域自动切换（纯 HTTP，极速稳定）
-- **国内网络**: 自动使用 Bing 国内版（HTTP 直连，无 headless 检测问题）
+### 1. 区域自动切换（HTTP 优先，cookies 兜底）
+- **国内网络**: 自动使用 Bing 国内版（HTTP 直连优先）
+  - 结果不足 3 条时，启动有头浏览器获取 cookies 后立即关闭，用 cookies 重试 HTTP
+  - 浏览器只用于获取 session cookies，搜索仍走 HTTP 通道
 - **国际网络**: 自动使用 DuckDuckGo HTML（纯 HTTP，速度快）
 - **兜底策略**: 主引擎无结果时自动切换备用引擎
-- **架构优势**: 完全基于 HTTP 请求，无需启动浏览器，速度快、资源占用低
+- **架构优势**: 主路径基于 HTTP 请求，速度快、资源占用低
 
 ### 2. Query 智能改写
 基于搜索意图自动优化关键词，提升结果相关性：

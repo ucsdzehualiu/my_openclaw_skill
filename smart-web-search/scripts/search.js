@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * smart-web-search search.js v1.1
+ * smart-web-search search.js v1.0.2
  *
- * 策略更新：全部改用 HTTP，避免 Playwright headless 检测
- * 国内: Bing HTML (HTTP) → 失败兜底 DDG
- * 海外: DDG HTML (HTTP) → 失败兜底 Bing
- * Query 意图改写 + 自动抓取正文
+ * 策略更新：
+ * - 国内: Bing HTML (快速 HTTP) → 结果不足时获取 cookies 重试 → 失败兜底 DDG
+ * - 海外: DDG HTML (HTTP) → 失败兜底 Bing
+ * - Cookie warm-up: 有头浏览器获取 cookies 后立即关闭，cookies 用于 HTTP 重试
+ * - Query 意图改写 + 自动抓取正文
  */
 import process from 'process';
 import child_process from 'child_process';
@@ -255,10 +256,9 @@ async function searchBingHtml(query, max) {
   return out.slice(0, max);
 }
 
-// ==================== Bing Headed (Playwright 有头浏览器兜底) ====================
-async function searchBingHeaded(query, max) {
-  console.error(`[Bing:headed] "${query}" (启动有头浏览器)`);
-  const out = [], seen = new Set();
+// ==================== Bing Cookies 获取（有头浏览器 warm-up）====================
+async function getBingCookies() {
+  console.error('[Bing:cookies] 启动有头浏览器获取 cookies...');
   let browser;
   try {
     const { chromium } = await import('playwright');
@@ -271,70 +271,69 @@ async function searchBingHeaded(query, max) {
     await ctx.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     });
-    // 屏蔽图片/字体/媒体以加速
-    await ctx.route('**/*', (route) => {
-      const t = route.request().resourceType();
-      if (t === 'image' || t === 'font' || t === 'media') return route.abort();
-      route.continue();
-    });
 
     const page = await ctx.newPage();
-
-    // 关键：先访问首页拿 cookies + 建立 session，再搜索
-    console.error('[Bing:headed] warm-up: 访问首页建立 session');
+    // 访问首页建立 session 并获取 cookies
     await page.goto('https://cn.bing.com/', { waitUntil: 'commit', timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000); // 等待 3 秒让页面完全加载并设置 cookies
+
+    const cookies = await ctx.cookies();
+    console.error(`[Bing:cookies] 获取到 ${cookies.length} 个 cookies`);
+
+    await browser.close();
+    return cookies;
+  } catch (e) {
+    console.error(`[Bing:cookies] 错误: ${e.message.split('\n')[0]}`);
+    if (browser) await browser.close().catch(() => {});
+    return [];
+  }
+}
+
+// ==================== Bing HTML with Cookies (HTTP + cookies) ====================
+async function searchBingWithCookies(query, max, cookies) {
+  console.error(`[Bing:cookies+http] "${query}" (使用获取的 cookies)`);
+  const out = [], seen = new Set();
+  try {
+    const cookieHeader = cookies
+      .map(c => `${c.name}=${c.value}`)
+      .join('; ');
 
     const url = 'https://cn.bing.com/search?' + querystring.stringify({ q: query });
-    await page.goto(url, { waitUntil: 'commit', timeout: 20000 });
-    try {
-      await page.waitForSelector('li.b_algo h2 a', { timeout: 12000 });
-    } catch {
-      console.error('[Bing:headed] 等待 li.b_algo 超时，直接采集当前 DOM');
-    }
-    console.error(`[Bing:headed] final URL: ${page.url()}`);
-    console.error(`[Bing:headed] title: ${await page.title()}`);
+    const r = await fetch(url, {
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en-US,en;q=0.8',
+        'Referer': 'https://cn.bing.com/',
+        'Cookie': cookieHeader,
+      },
+      signal: AbortSignal.timeout(HTTP_TIMEOUT), redirect: 'follow',
+    });
+    if (!r.ok) { console.error(`[Bing:cookies+http] HTTP ${r.status}`); return out; }
 
-    const items = await page.$$eval('li.b_algo', els =>
-      els.map(el => {
-        const a = el.querySelector('h2 a');
-        const title = a?.textContent?.trim() || '';
-        const href = a?.href || '';
-        const snippet = el.querySelector('.b_caption p, .b_caption')?.textContent?.trim() || '';
-        return { title, href, snippet };
-      })
-    );
+    const html = await r.text();
+    const { load } = await import('cheerio');
+    const $ = load(html);
 
-    for (const { title, href, snippet } of items) {
+    $('li.b_algo').each((_, el) => {
+      const $el = $(el);
+      const $a = $el.find('h2 a').first();
+      if (!$a.length) return;
+      const title = clean($a.text());
+      const href = $a.attr('href') || '';
+      const snippet = clean($el.find('.b_caption p, .b_caption').text());
       const url = normalizeUrl(href);
       if (title && url?.startsWith('http') && !seen.has(url.toLowerCase())) {
         seen.add(url.toLowerCase());
         out.push({ title, url, snippet });
       }
-    }
+    });
 
-    console.error(`[Bing:headed] ${out.length} 条`);
+    console.error(`[Bing:cookies+http] ${out.length} 条`);
   } catch (e) {
-    console.error(`[Bing:headed] 错误: ${e.message.split('\n')[0]}`);
-  } finally {
-    if (browser) await browser.close().catch(() => {});
+    console.error(`[Bing:cookies+http] 错误: ${e.message.split('\n')[0]}`);
   }
   return out.slice(0, max);
-}
-
-// 判断结果是否看起来像"品牌首页"（URL 路径过浅）
-function looksLikeBrandPages(results) {
-  if (results.length < 3) return false;
-  const shallow = results.filter(r => {
-    try {
-      const u = new URL(r.url);
-      const pathDepth = u.pathname.split('/').filter(Boolean).length;
-      return pathDepth <= 1; // 只有 / 或 /xxx，没有更深路径
-    } catch {
-      return false;
-    }
-  });
-  return shallow.length >= Math.min(4, results.length); // >= 4 条或 >= 80% 是首页
 }
 
 // ==================== DDG HTML (HTTP) ====================
@@ -450,17 +449,21 @@ async function main() {
   };
 
   if (inChina) {
-    console.error('[策略] 国内 → Bing HTML');
+    console.error('[策略] 国内 → Bing HTML (快速)');
     add(await searchBingHtml(query, max));
-    if (out.length === 0) {
-      console.error('[策略] Bing 为空，兜底 → DDG HTML');
-      add(await searchDDGHtml(query, max));
-    } else if (looksLikeBrandPages(out)) {
-      console.error(`[策略] 检测到结果疑似品牌首页堆叠（${out.length} 条多为根路径），切换有头浏览器重试`);
-      out.length = 0; seen.clear();
-      add(await searchBingHeaded(query, max));
+
+    // 如果结果 < 3 条，可能质量不佳，用 cookies 重试
+    if (out.length < 3) {
+      console.error(`[策略] 结果不足 (${out.length} 条)，获取 cookies 后重试`);
+      const cookies = await getBingCookies();
+      if (cookies.length > 0) {
+        out.length = 0; seen.clear();
+        add(await searchBingWithCookies(query, max, cookies));
+      }
+
+      // 如果还是为空，兜底 DDG
       if (out.length === 0) {
-        console.error('[策略] 有头浏览器为空，回退 DDG');
+        console.error('[策略] cookies 重试仍为空，兜底 → DDG HTML');
         add(await searchDDGHtml(query, max));
       }
     }

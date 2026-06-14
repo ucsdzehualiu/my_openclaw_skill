@@ -1,8 +1,8 @@
 ---
 name: cloud-compare
-description: 云产品技术文档对比工具，自动抓取阿里云、华为云官方文档，生成结构化对比资料，辅助技术选型和学习
+description: 云产品技术文档对比工具，自动抓取阿里云、华为云、AWS 官方文档，生成结构化对比资料，辅助技术选型和学习
 author: cloud-compare
-version: "4.3.0"
+version: "4.4.0"
 license: Apache-2.0
 allowed-tools: web_fetch
 ---
@@ -27,15 +27,30 @@ allowed-tools: web_fetch
 > **依赖需手动安装**：`pip install playwright httpx beautifulsoup4 && playwright install chromium`
 
 ```bash
+# 默认对比阿里云和华为云
 python scripts/cloud_doc_scraper.py --product ecs
-python scripts/cloud_doc_scraper.py --product oss --output oss_docs.md
-python scripts/cloud_doc_scraper.py --product rds --max-pages 15
-python scripts/cloud_doc_scraper.py --list   # 查看所有支持的产品
+
+# 对比阿里云、华为云、AWS（三方对比）
+python scripts/cloud_doc_scraper.py --product oss --providers aliyun,huawei,aws
+
+# 只对比阿里云和 AWS
+python scripts/cloud_doc_scraper.py --product rds --providers aliyun,aws
+
+# 自定义输出和页数
+python scripts/cloud_doc_scraper.py --product redis --providers aliyun,huawei,aws --output redis_3way.md --max-pages 15
+
+# 查看所有支持的产品
+python scripts/cloud_doc_scraper.py --list
 ```
 
 **支持的产品**：ecs, oss, rds, redis, ack, fc, slb, maxcompute, pai, bailian, cdn, nas, flink, elasticsearch, dws
 
-**输出**：markdown 文件，包含阿里云和华为云的官方文档原文 + 更新日志，可直接粘贴给 AI 做竞品分析。
+**支持的厂商**：
+- `aliyun`（阿里云）
+- `huawei`（华为云）
+- `aws`（亚马逊云）
+
+**输出**：markdown 文件，包含各厂商的官方文档原文 + 更新日志，可直接粘贴给 AI 做竞品分析。
 
 **工作原理**：
 1. 检测依赖是否就绪，缺失时提示安装命令并退出
@@ -65,6 +80,11 @@ python scripts/cloud_doc_scraper.py --list   # 查看所有支持的产品
 - 主入口：`https://help.aliyun.com/zh/{product}`
 - 更新日志：`https://help.aliyun.com/zh/{product}/product-overview/release-notes`
 - URL 可能变更，脚本会自动从目录导航发现链接
+
+**AWS 文档**：
+- 中文文档：`https://docs.aws.amazon.com/zh_cn/{service}/`
+- 更新日志：各产品文档内的 `document-history.html` 或 `WhatsNew.html`
+- 脚本使用预配置的 deep_links 直接抓取核心页面
 
 ### 阿里云
 | 品类 | 产品 | 文档 | 更新日志 |
@@ -103,6 +123,25 @@ python scripts/cloud_doc_scraper.py --list   # 查看所有支持的产品
 | 搜索 | 云搜索服务CSS | https://support.huaweicloud.cn/css/index.html | https://support.huaweicloud.cn/wtsnew-css/index.html |
 | AI | AI开发平台ModelArts | https://support.huaweicloud.cn/modelarts/index.html | https://support.huaweicloud.cn/wtsnew-modelarts/index.html |
 | AI | 盘古大模型平台 | https://support.huaweicloud.cn/pangu/index.html | https://support.huaweicloud.cn/wtsnew-pangu/index.html |
+
+### AWS（亚马逊云）
+| 品类 | 产品 | 文档 | 对应阿里云/华为云 |
+|------|------|------|----------|
+| 计算 | EC2 | https://docs.aws.amazon.com/zh_cn/ec2/ | ECS / ECS |
+| 计算 | Lambda | https://docs.aws.amazon.com/zh_cn/lambda/ | FC / FunctionGraph |
+| 存储 | S3 | https://docs.aws.amazon.com/zh_cn/AmazonS3/ | OSS / OBS |
+| 存储 | EFS | https://docs.aws.amazon.com/zh_cn/efs/ | NAS / SFS |
+| 数据库 | RDS | https://docs.aws.amazon.com/zh_cn/AmazonRDS/ | RDS / RDS |
+| 数据库 | ElastiCache | https://docs.aws.amazon.com/zh_cn/AmazonElastiCache/ | Redis / DCS |
+| 数据库 | Redshift | https://docs.aws.amazon.com/zh_cn/redshift/ | AnalyticDB / DWS |
+| 容器 | EKS | https://docs.aws.amazon.com/zh_cn/eks/ | ACK / CCE |
+| 网络 | ELB | https://docs.aws.amazon.com/zh_cn/elasticloadbalancing/ | SLB / ELB |
+| 网络 | CloudFront | https://docs.aws.amazon.com/zh_cn/AmazonCloudFront/ | CDN / CDN |
+| 大数据 | EMR | https://docs.aws.amazon.com/zh_cn/emr/ | MaxCompute / MRS |
+| 大数据 | Managed Flink | https://docs.aws.amazon.com/zh_cn/managed-flink/ | Flink / DLI |
+| 搜索 | OpenSearch | https://docs.aws.amazon.com/zh_cn/opensearch-service/ | Elasticsearch / CSS |
+| AI | SageMaker | https://docs.aws.amazon.com/zh_cn/sagemaker/ | PAI / ModelArts |
+| AI | Bedrock | https://docs.aws.amazon.com/zh_cn/bedrock/ | 百炼 / 盘古 |
 
 ---
 

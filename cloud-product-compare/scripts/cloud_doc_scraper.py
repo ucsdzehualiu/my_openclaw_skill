@@ -122,7 +122,7 @@ except ImportError:
 # ─── 产品配置 ─────────────────────────────────────────────────────────────────
 PRODUCTS = {
     "ecs": {
-        "name": "云服务器 ECS / ECS",
+        "name": "云服务器 ECS / ECS / EC2",
         "aliyun": {"doc": "https://help.aliyun.com/zh/ecs", "changelog": "https://help.aliyun.com/zh/ecs/product-overview/release-notes"},
         "huawei": {"doc": "https://support.huaweicloud.cn/ecs/index.html", "changelog": "https://support.huaweicloud.cn/wtsnew-ecs/index.html",
                    "deep_links": [
@@ -132,9 +132,16 @@ PRODUCTS = {
                        {"text": "实例规格", "url": "https://support.huaweicloud.com/productdesc-ecs/ecs_01_0014.html"},
                        {"text": "产品功能", "url": "https://support.huaweicloud.com/productdesc-ecs/ecs_01_0005.html"},
                    ]},
+        "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/ec2/", "changelog": "https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/document-history-release-notes.html",
+                "deep_links": [
+                    {"text": "什么是 EC2", "url": "https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/concepts.html"},
+                    {"text": "实例类型", "url": "https://docs.aws.amazon.com/zh_cn/ec2/latest/instancetypes/instance-types.html"},
+                    {"text": "实例购买选项", "url": "https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/instance-purchasing-options.html"},
+                    {"text": "EC2 功能", "url": "https://aws.amazon.com/cn/ec2/features/"},
+                ]},
     },
     "oss": {
-        "name": "对象存储 OSS / OBS",
+        "name": "对象存储 OSS / OBS / S3",
         "aliyun": {"doc": "https://help.aliyun.com/zh/oss", "changelog": "https://help.aliyun.com/zh/oss/product-overview/release-notes"},
         "huawei": {"doc": "https://support.huaweicloud.cn/obs/index.html", "changelog": "https://support.huaweicloud.cn/wtsnew-obs/index.html",
                    "deep_links": [
@@ -144,9 +151,16 @@ PRODUCTS = {
                        {"text": "产品功能", "url": "https://support.huaweicloud.com/productdesc-obs/obs_03_0151.html"},
                        {"text": "约束与限制", "url": "https://support.huaweicloud.com/productdesc-obs/obs_03_0360.html"},
                    ]},
+        "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/Welcome.html", "changelog": "https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/WhatsNew.html",
+                "deep_links": [
+                    {"text": "什么是 S3", "url": "https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/Welcome.html"},
+                    {"text": "存储类别", "url": "https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/storage-class-intro.html"},
+                    {"text": "S3 功能", "url": "https://aws.amazon.com/cn/s3/features/"},
+                    {"text": "S3 性能指南", "url": "https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/optimizing-performance.html"},
+                ]},
     },
     "rds": {
-        "name": "云数据库 RDS",
+        "name": "云数据库 RDS / RDS for MySQL",
         "aliyun": {"doc": "https://help.aliyun.com/zh/rds", "changelog": "https://help.aliyun.com/zh/rds/product-overview/release-notes"},
         "huawei": {"doc": "https://support.huaweicloud.cn/rds/index.html", "changelog": "https://support.huaweicloud.cn/wtsnew-rds/index.html",
                    "deep_links": [
@@ -156,9 +170,16 @@ PRODUCTS = {
                        {"text": "性能白皮书", "url": "https://support.huaweicloud.com/pwp-rds/pwp_0000.html"},
                        {"text": "最佳实践", "url": "https://support.huaweicloud.com/bestpractice-rds/practice_0000.html"},
                    ]},
+        "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/AmazonRDS/latest/UserGuide/Welcome.html", "changelog": "https://docs.aws.amazon.com/zh_cn/AmazonRDS/latest/UserGuide/WelcomeDocHistory.html",
+                "deep_links": [
+                    {"text": "什么是 RDS", "url": "https://docs.aws.amazon.com/zh_cn/AmazonRDS/latest/UserGuide/Welcome.html"},
+                    {"text": "数据库引擎", "url": "https://docs.aws.amazon.com/zh_cn/AmazonRDS/latest/UserGuide/Concepts.DBInstance.html"},
+                    {"text": "实例类", "url": "https://docs.aws.amazon.com/zh_cn/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html"},
+                    {"text": "RDS 功能", "url": "https://aws.amazon.com/cn/rds/features/"},
+                ]},
     },
     "redis": {
-        "name": "云数据库 Redis / DCS",
+        "name": "云数据库 Redis / DCS / ElastiCache",
         "aliyun": {"doc": "https://help.aliyun.com/zh/redis", "changelog": "https://help.aliyun.com/zh/redis/product-overview/release-notes"},
         "huawei": {"doc": "https://support.huaweicloud.cn/dcs/index.html", "changelog": "https://support.huaweicloud.cn/wtsnew-dcs/index.html",
                    "deep_links": [
@@ -168,9 +189,15 @@ PRODUCTS = {
                        {"text": "DCS产品选型参考", "url": "https://support.huaweicloud.com/productdesc-dcs/dcs_01_0002.html"},
                        {"text": "Redis实例类型差异", "url": "https://support.huaweicloud.com/productdesc-dcs/dcs-pd-191224001.html"},
                    ]},
+        "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/AmazonElastiCache/latest/red-ug/WhatIs.html", "changelog": "https://docs.aws.amazon.com/zh_cn/AmazonElastiCache/latest/red-ug/WhatsNew.html",
+                "deep_links": [
+                    {"text": "什么是 ElastiCache", "url": "https://docs.aws.amazon.com/zh_cn/AmazonElastiCache/latest/red-ug/WhatIs.html"},
+                    {"text": "节点类型", "url": "https://docs.aws.amazon.com/zh_cn/AmazonElastiCache/latest/red-ug/CacheNodes.SupportedTypes.html"},
+                    {"text": "ElastiCache 功能", "url": "https://aws.amazon.com/cn/elasticache/features/"},
+                ]},
     },
     "ack": {
-        "name": "容器服务 ACK / CCE",
+        "name": "容器服务 ACK / CCE / EKS",
         "aliyun": {"doc": "https://help.aliyun.com/zh/ack", "changelog": "https://help.aliyun.com/zh/ack/product-overview/release-notes"},
         "huawei": {"doc": "https://support.huaweicloud.cn/cce/index.html", "changelog": "https://support.huaweicloud.cn/wtsnew-cce/index.html",
                    "deep_links": [
@@ -179,9 +206,15 @@ PRODUCTS = {
                        {"text": "版本说明", "url": "https://support.huaweicloud.com/productdesc-cce/cce_productdesc_0003.html"},
                        {"text": "应用场景", "url": "https://support.huaweicloud.com/productdesc-cce/cce_productdesc_0005.html"},
                    ]},
+        "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/eks/latest/userguide/what-is-eks.html", "changelog": "https://docs.aws.amazon.com/zh_cn/eks/latest/userguide/doc-history.html",
+                "deep_links": [
+                    {"text": "什么是 EKS", "url": "https://docs.aws.amazon.com/zh_cn/eks/latest/userguide/what-is-eks.html"},
+                    {"text": "EKS 功能", "url": "https://aws.amazon.com/cn/eks/features/"},
+                    {"text": "Kubernetes 版本", "url": "https://docs.aws.amazon.com/zh_cn/eks/latest/userguide/kubernetes-versions.html"},
+                ]},
     },
     "fc": {
-        "name": "函数计算 FC / FunctionGraph",
+        "name": "函数计算 FC / FunctionGraph / Lambda",
         "aliyun": {"doc": "https://help.aliyun.com/zh/fc", "changelog": "https://help.aliyun.com/zh/fc/product-overview/release-notes"},
         "huawei": {"doc": "https://support.huaweicloud.cn/functiongraph/index.html", "changelog": "https://support.huaweicloud.cn/wtsnew-functiongraph/index.html",
                    "deep_links": [
@@ -189,9 +222,16 @@ PRODUCTS = {
                        {"text": "功能特性", "url": "https://support.huaweicloud.com/productdesc-functiongraph/functiongraph_01_0200.html"},
                        {"text": "应用场景", "url": "https://support.huaweicloud.com/productdesc-functiongraph/functiongraph_01_0300.html"},
                    ]},
+        "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/lambda/latest/dg/welcome.html", "changelog": "https://docs.aws.amazon.com/zh_cn/lambda/latest/dg/lambda-releases.html",
+                "deep_links": [
+                    {"text": "什么是 Lambda", "url": "https://docs.aws.amazon.com/zh_cn/lambda/latest/dg/welcome.html"},
+                    {"text": "Lambda 功能", "url": "https://aws.amazon.com/cn/lambda/features/"},
+                    {"text": "运行时支持", "url": "https://docs.aws.amazon.com/zh_cn/lambda/latest/dg/lambda-runtimes.html"},
+                    {"text": "配额", "url": "https://docs.aws.amazon.com/zh_cn/lambda/latest/dg/gettingstarted-limits.html"},
+                ]},
     },
     "slb": {
-        "name": "负载均衡 SLB / ELB",
+        "name": "负载均衡 SLB / ELB / ELB",
         "aliyun": {"doc": "https://help.aliyun.com/zh/slb", "changelog": "https://help.aliyun.com/zh/slb/product-overview/release-notes"},
         "huawei": {"doc": "https://support.huaweicloud.cn/elb/index.html", "changelog": "https://support.huaweicloud.cn/wtsnew-elb/index.html",
                    "deep_links": [
@@ -200,9 +240,14 @@ PRODUCTS = {
                        {"text": "应用场景", "url": "https://support.huaweicloud.com/productdesc-elb/elb_pro_0004.html"},
                        {"text": "规格", "url": "https://support.huaweicloud.com/productdesc-elb/elb_pro_0010.html"},
                    ]},
+        "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/elasticloadbalancing/latest/userguide/what-is-load-balancing.html", "changelog": "https://docs.aws.amazon.com/zh_cn/elasticloadbalancing/latest/userguide/document-history.html",
+                "deep_links": [
+                    {"text": "什么是 ELB", "url": "https://docs.aws.amazon.com/zh_cn/elasticloadbalancing/latest/userguide/what-is-load-balancing.html"},
+                    {"text": "ELB 功能对比", "url": "https://aws.amazon.com/cn/elasticloadbalancing/features/"},
+                ]},
     },
     "maxcompute": {
-        "name": "大数据 MaxCompute / MRS",
+        "name": "大数据 MaxCompute / MRS / EMR",
         "aliyun": {"doc": "https://help.aliyun.com/zh/maxcompute", "changelog": "https://help.aliyun.com/zh/maxcompute/product-overview/Release-notes"},
         "huawei": {"doc": "https://support.huaweicloud.cn/mrs/index.html", "changelog": "https://support.huaweicloud.cn/wtsnew-mrs/index.html",
                    "deep_links": [
@@ -210,9 +255,15 @@ PRODUCTS = {
                        {"text": "组件版本", "url": "https://support.huaweicloud.com/productdesc-mrs/mrs_08_0005.html"},
                        {"text": "产品功能", "url": "https://support.huaweicloud.com/productdesc-mrs/mrs_08_0002.html"},
                    ]},
+        "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/emr/latest/ManagementGuide/emr-what-is-emr.html", "changelog": "https://docs.aws.amazon.com/zh_cn/emr/latest/ReleaseGuide/emr-release-components.html",
+                "deep_links": [
+                    {"text": "什么是 EMR", "url": "https://docs.aws.amazon.com/zh_cn/emr/latest/ManagementGuide/emr-what-is-emr.html"},
+                    {"text": "EMR 功能", "url": "https://aws.amazon.com/cn/emr/features/"},
+                    {"text": "组件版本", "url": "https://docs.aws.amazon.com/zh_cn/emr/latest/ReleaseGuide/emr-release-components.html"},
+                ]},
     },
     "pai": {
-        "name": "AI 平台 PAI / ModelArts",
+        "name": "AI 平台 PAI / ModelArts / SageMaker",
         "aliyun": {"doc": "https://help.aliyun.com/zh/pai", "changelog": "https://help.aliyun.com/zh/pai/user-guide/api-aiworkspace-2021-02-04-changeset"},
         "huawei": {"doc": "https://support.huaweicloud.cn/modelarts/index.html", "changelog": "https://support.huaweicloud.cn/wtsnew-modelarts/index.html",
                    "deep_links": [
@@ -220,14 +271,26 @@ PRODUCTS = {
                        {"text": "功能特性", "url": "https://support.huaweicloud.com/productdesc-modelarts/modelarts_product_0002.html"},
                        {"text": "应用场景", "url": "https://support.huaweicloud.com/productdesc-modelarts/modelarts_product_0003.html"},
                    ]},
+        "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/sagemaker/latest/dg/whatis.html", "changelog": "https://docs.aws.amazon.com/zh_cn/sagemaker/latest/dg/doc-history.html",
+                "deep_links": [
+                    {"text": "什么是 SageMaker", "url": "https://docs.aws.amazon.com/zh_cn/sagemaker/latest/dg/whatis.html"},
+                    {"text": "SageMaker 功能", "url": "https://aws.amazon.com/cn/sagemaker/features/"},
+                    {"text": "实例类型", "url": "https://docs.aws.amazon.com/zh_cn/sagemaker/latest/dg/instance-types.html"},
+                ]},
     },
     "bailian": {
-        "name": "大模型平台 百炼 / 盘古",
+        "name": "大模型平台 百炼 / 盘古 / Bedrock",
         "aliyun": {"doc": "https://help.aliyun.com/zh/bailian", "changelog": "https://help.aliyun.com/zh/bailian/release-notes"},
         "huawei": {"doc": "https://support.huaweicloud.cn/pangu/index.html", "changelog": "https://support.huaweicloud.cn/wtsnew-pangu/index.html"},
+        "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/bedrock/latest/userguide/what-is-bedrock.html", "changelog": "https://docs.aws.amazon.com/zh_cn/bedrock/latest/userguide/doc-history.html",
+                "deep_links": [
+                    {"text": "什么是 Bedrock", "url": "https://docs.aws.amazon.com/zh_cn/bedrock/latest/userguide/what-is-bedrock.html"},
+                    {"text": "支持的基础模型", "url": "https://docs.aws.amazon.com/zh_cn/bedrock/latest/userguide/models-supported.html"},
+                    {"text": "Bedrock 功能", "url": "https://aws.amazon.com/cn/bedrock/features/"},
+                ]},
     },
     "cdn": {
-        "name": "CDN",
+        "name": "CDN / CDN / CloudFront",
         "aliyun": {"doc": "https://help.aliyun.com/zh/cdn", "changelog": "https://help.aliyun.com/zh/cdn/product-overview/release-notes"},
         "huawei": {"doc": "https://support.huaweicloud.cn/cdn/index.html", "changelog": "https://support.huaweicloud.cn/wtsnew-cdn/index.html",
                    "deep_links": [
@@ -237,9 +300,15 @@ PRODUCTS = {
                        {"text": "产品功能", "url": "https://support.huaweicloud.com/productdesc-cdn/cdn_01_0369.html"},
                        {"text": "约束与限制", "url": "https://support.huaweicloud.com/productdesc-cdn/cdn_01_0068.html"},
                    ]},
+        "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/AmazonCloudFront/latest/DeveloperGuide/Introduction.html", "changelog": "https://docs.aws.amazon.com/zh_cn/AmazonCloudFront/latest/DeveloperGuide/document-history.html",
+                "deep_links": [
+                    {"text": "什么是 CloudFront", "url": "https://docs.aws.amazon.com/zh_cn/AmazonCloudFront/latest/DeveloperGuide/Introduction.html"},
+                    {"text": "CloudFront 功能", "url": "https://aws.amazon.com/cn/cloudfront/features/"},
+                    {"text": "请求和响应行为", "url": "https://docs.aws.amazon.com/zh_cn/AmazonCloudFront/latest/DeveloperGuide/RequestAndResponseBehavior.html"},
+                ]},
     },
     "nas": {
-        "name": "文件存储 NAS / SFS",
+        "name": "文件存储 NAS / SFS / EFS",
         "aliyun": {"doc": "https://help.aliyun.com/zh/nas", "changelog": "https://help.aliyun.com/zh/nas/product-overview/release-notes"},
         "huawei": {"doc": "https://support.huaweicloud.cn/sfs/index.html", "changelog": "https://support.huaweicloud.cn/wtsnew-sfs/index.html",
                    "deep_links": [
@@ -249,9 +318,15 @@ PRODUCTS = {
                        {"text": "约束与限制", "url": "https://support.huaweicloud.com/productdesc-sfs/sfs_01_0011.html"},
                        {"text": "计费说明", "url": "https://support.huaweicloud.com/productdesc-sfs/sfs_01_0108.html"},
                    ]},
+        "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/efs/latest/ug/whatisefs.html", "changelog": "https://docs.aws.amazon.com/zh_cn/efs/latest/ug/efs-release-notes.html",
+                "deep_links": [
+                    {"text": "什么是 EFS", "url": "https://docs.aws.amazon.com/zh_cn/efs/latest/ug/whatisefs.html"},
+                    {"text": "EFS 功能", "url": "https://aws.amazon.com/cn/efs/features/"},
+                    {"text": "性能", "url": "https://docs.aws.amazon.com/zh_cn/efs/latest/ug/performance.html"},
+                ]},
     },
     "flink": {
-        "name": "实时计算 Flink",
+        "name": "实时计算 Flink / DLI / Kinesis Data Analytics",
         "aliyun": {"doc": "https://help.aliyun.com/zh/flink", "changelog": "https://help.aliyun.com/zh/flink/product-overview/release-note"},
         "huawei": {"doc": "https://support.huaweicloud.cn/dli/index.html", "changelog": "https://support.huaweicloud.cn/wtsnew-dli/index.html",
                    "deep_links": [
@@ -259,9 +334,14 @@ PRODUCTS = {
                        {"text": "功能特性", "url": "https://support.huaweicloud.com/productdesc-dli/dli_01_0002.html"},
                        {"text": "应用场景", "url": "https://support.huaweicloud.com/productdesc-dli/dli_01_0003.html"},
                    ]},
+        "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/managed-flink/latest/java/what-is.html", "changelog": "https://docs.aws.amazon.com/zh_cn/managed-flink/latest/java/release-notes.html",
+                "deep_links": [
+                    {"text": "什么是 Managed Service for Apache Flink", "url": "https://docs.aws.amazon.com/zh_cn/managed-flink/latest/java/what-is.html"},
+                    {"text": "功能", "url": "https://aws.amazon.com/cn/managed-service-apache-flink/features/"},
+                ]},
     },
     "elasticsearch": {
-        "name": "搜索 Elasticsearch / CSS",
+        "name": "搜索 Elasticsearch / CSS / OpenSearch",
         "aliyun": {"doc": "https://help.aliyun.com/zh/elasticsearch", "changelog": "https://help.aliyun.com/zh/elasticsearch/product-overview/release-notes"},
         "huawei": {"doc": "https://support.huaweicloud.cn/css/index.html", "changelog": "https://support.huaweicloud.cn/wtsnew-css/index.html",
                    "deep_links": [
@@ -271,9 +351,15 @@ PRODUCTS = {
                        {"text": "产品功能", "url": "https://support.huaweicloud.com/productdesc-css/css_04_0003.html"},
                        {"text": "约束与限制", "url": "https://support.huaweicloud.com/productdesc-css/css_04_0005.html"},
                    ]},
+        "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/opensearch-service/latest/developerguide/what-is.html", "changelog": "https://docs.aws.amazon.com/zh_cn/opensearch-service/latest/developerguide/release-notes.html",
+                "deep_links": [
+                    {"text": "什么是 OpenSearch Service", "url": "https://docs.aws.amazon.com/zh_cn/opensearch-service/latest/developerguide/what-is.html"},
+                    {"text": "OpenSearch 功能", "url": "https://aws.amazon.com/cn/opensearch-service/features/"},
+                    {"text": "支持的版本", "url": "https://docs.aws.amazon.com/zh_cn/opensearch-service/latest/developerguide/what-is.html#choosing-version"},
+                ]},
     },
     "dws": {
-        "name": "数据仓库 AnalyticDB / GaussDB(DWS)",
+        "name": "数据仓库 AnalyticDB / GaussDB(DWS) / Redshift",
         "aliyun": {"doc": "https://help.aliyun.com/zh/analyticdb-for-postgresql", "changelog": "https://help.aliyun.com/zh/analyticdb-for-postgresql/product-overview/release-notes",
                    "deep_links": [
                        {"text": "什么是AnalyticDB PG", "url": "https://help.aliyun.com/zh/analyticdb-for-postgresql/product-overview/what-is-analyticdb-for-postgresql"},
@@ -291,6 +377,13 @@ PRODUCTS = {
                        {"text": "应用场景", "url": "https://support.huaweicloud.com/productdesc-dws/dws_01_0006.html"},
                        {"text": "基本概念", "url": "https://support.huaweicloud.com/productdesc-dws/dws_01_0007.html"},
                    ]},
+        "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/redshift/latest/mgmt/welcome.html", "changelog": "https://docs.aws.amazon.com/zh_cn/redshift/latest/mgmt/doc-history.html",
+                "deep_links": [
+                    {"text": "什么是 Redshift", "url": "https://docs.aws.amazon.com/zh_cn/redshift/latest/mgmt/welcome.html"},
+                    {"text": "Redshift 功能", "url": "https://aws.amazon.com/cn/redshift/features/"},
+                    {"text": "节点类型", "url": "https://docs.aws.amazon.com/zh_cn/redshift/latest/mgmt/working-with-clusters.html#rs-node-types"},
+                    {"text": "Redshift Serverless", "url": "https://docs.aws.amazon.com/zh_cn/redshift/latest/mgmt/serverless-whatis.html"},
+                ]},
     },
 }
 
@@ -320,6 +413,10 @@ HUAWEI_NAV_SELECTORS = [
     "[class*='catalog'] a", "[class*='tree'] a", "[class*='nav'] a", "[class*='menu'] a",
     ".left-nav a", ".doc-nav a", ".doc-sidebar a",
     "aside a", "[role='navigation'] a",
+]
+AWS_NAV_SELECTORS = [
+    "#sidebar a", ".awsui-side-navigation a", "[data-testid='sidebar'] a",
+    "nav a", ".sidebar a", "[role='navigation'] a",
 ]
 
 async def parse_toc(page, base_url: str, nav_selectors: list, label: str) -> list:
@@ -355,6 +452,10 @@ ALIYUN_CONTENT_SELECTORS = [
 HUAWEI_CONTENT_SELECTORS = [
     ".book-desc", ".content-block", "#content", "article", ".markdown-body",
 ]
+AWS_CONTENT_SELECTORS = [
+    "#main-content", ".awsui-util-container", "[data-testid='main-content']",
+    "main", "article", ".main-content",
+]
 FALLBACK_CONTENT_SELECTORS = ["main", ".main-content", ".content"]
 
 NOISE_PATTERNS = [
@@ -368,6 +469,9 @@ NOISE_PATTERNS = [
     "华为云App", "950808", "售前咨询热线",
     "云商店咨询", "备案服务", "增值电信业务",
     "黔ICP备", "苏B2-", "贵公网安备",
+    # AWS noise
+    "AWS Documentation", "Document Conventions", "Did this page help you",
+    "Javascript is disabled", "On this page", "Feedback",
 ]
 
 def denoise_text(text: str) -> str:
@@ -573,23 +677,40 @@ async def scrape_side(context, label: str, doc_url: str, changelog_url: str,
     return result
 
 # ─── 拼装 Markdown ────────────────────────────────────────────────────────────
-def build_markdown(product_name: str, aliyun: dict, huawei: dict) -> str:
+def build_markdown(product_name: str, providers_data: dict) -> str:
     now = datetime.now().strftime("%Y-%m-%d")
     lines = [
         f"# 云产品文档对比：{product_name}",
         f"> 抓取时间：{now}",
-        f"> 阿里云：目录 {aliyun['toc_total']} 页，本次抓取 {len(aliyun['pages'])} 页",
-        f"> 华为云：目录 {huawei['toc_total']} 页，本次抓取 {len(huawei['pages'])} 页",
-        "",
-        "## 快速对比表格",
-        "",
-        "基于抓取的官方文档，以下是两款产品的关键信息对比：",
-        "",
-        "| 对比维度 | 阿里云 | 华为云 |",
-        "|---------|--------|--------|",
-        "| 产品名称 | " + (aliyun['pages'][0][0] if aliyun['pages'] else "N/A") + " | " + (huawei['pages'][0][0] if huawei['pages'] else "N/A") + " |",
-        "| 文档完整度 | " + str(len(aliyun['pages'])) + " 页核心文档 | " + str(len(huawei['pages'])) + " 页核心文档 |",
-        "| 更新日志 | " + ("✅ 已抓取" if aliyun['changelog'] else "❌ 未获取") + " | " + ("✅ 已抓取" if huawei['changelog'] else "❌ 未获取") + " |",
+    ]
+    for label, data in providers_data.items():
+        lines.append(f"> {label}：目录 {data['toc_total']} 页，本次抓取 {len(data['pages'])} 页")
+    lines += ["", "## 快速对比表格", "", "基于抓取的官方文档，以下是各厂商产品的关键信息对比：", ""]
+
+    # 表头
+    headers = ["对比维度"] + list(providers_data.keys())
+    lines.append("| " + " | ".join(headers) + " |")
+    lines.append("|" + "|".join(["-" * (len(h) + 2) for h in headers]) + "|")
+
+    # 产品名称行
+    names = ["产品名称"]
+    for data in providers_data.values():
+        names.append(data['pages'][0][0] if data['pages'] else "N/A")
+    lines.append("| " + " | ".join(names) + " |")
+
+    # 文档完整度行
+    completeness = ["文档完整度"]
+    for data in providers_data.values():
+        completeness.append(f"{len(data['pages'])} 页核心文档")
+    lines.append("| " + " | ".join(completeness) + " |")
+
+    # 更新日志行
+    changelog_status = ["更新日志"]
+    for data in providers_data.values():
+        changelog_status.append("✅ 已抓取" if data['changelog'] else "❌ 未获取")
+    lines.append("| " + " | ".join(changelog_status) + " |")
+
+    lines += [
         "",
         "> **说明**：以上为自动生成的基础对比框架，详细差异需结合下方原文进行人工分析。",
         "",
@@ -607,23 +728,47 @@ def build_markdown(product_name: str, aliyun: dict, huawei: dict) -> str:
         "",
         "---", "",
     ]
-    for side in [aliyun, huawei]:
-        lines += [f"# {side['label']}", ""]
-        if not side["pages"]:
-            lines.append(f"> [WARN] 抓取失败，请手动访问: {side['doc_url']}")
+
+    for label, data in providers_data.items():
+        lines += [f"# {label}", ""]
+        if not data["pages"]:
+            lines.append(f"> [WARN] 抓取失败，请手动访问: {data['doc_url']}")
         else:
-            for title, url, content in side["pages"]:
-                lines += [f"## {side['label']} · {title}", f"> 来源: {url}", ""]
+            for title, url, content in data["pages"]:
+                lines += [f"## {label} · {title}", f"> 来源: {url}", ""]
                 body = content[:8000]
                 if len(content) > 8000:
                     body += "\n\n[...内容过长已截断，完整内容见源链接...]"
                 lines += [body, "", "---", ""]
-        lines += [f"## {side['label']} · 更新日志", f"> 来源: {side['changelog_url']}", ""]
-        cl = side["changelog"][:6000]
-        if len(side["changelog"]) > 6000:
+        lines += [f"## {label} · 更新日志", f"> 来源: {data['changelog_url']}", ""]
+        cl = data["changelog"][:6000]
+        if len(data["changelog"]) > 6000:
             cl += "\n\n[...内容过长已截断...]"
-        lines += [cl or f"> [WARN] 抓取失败，请手动访问: {side['changelog_url']}", "", "---", ""]
+        lines += [cl or f"> [WARN] 抓取失败，请手动访问: {data['changelog_url']}", "", "---", ""]
+
     return "\n".join(lines)
+
+# ─── Provider 配置映射 ─────────────────────────────────────────────────────────
+PROVIDER_CONFIG = {
+    "aliyun": {
+        "label": "Aliyun",
+        "nav_selectors": ALIYUN_NAV_SELECTORS,
+        "content_selectors": ALIYUN_CONTENT_SELECTORS + FALLBACK_CONTENT_SELECTORS,
+        "is_huawei": False,
+    },
+    "huawei": {
+        "label": "Huawei",
+        "nav_selectors": HUAWEI_NAV_SELECTORS,
+        "content_selectors": HUAWEI_CONTENT_SELECTORS + FALLBACK_CONTENT_SELECTORS,
+        "is_huawei": True,
+    },
+    "aws": {
+        "label": "AWS",
+        "nav_selectors": AWS_NAV_SELECTORS,
+        "content_selectors": AWS_CONTENT_SELECTORS + FALLBACK_CONTENT_SELECTORS,
+        "is_huawei": False,
+    },
+}
 
 # ─── 主入口 ───────────────────────────────────────────────────────────────────
 async def main_async(product_key: str, max_pages: int, output: str, args):
@@ -631,49 +776,61 @@ async def main_async(product_key: str, max_pages: int, output: str, args):
         print(f"[FAIL] Unknown product '{product_key}', available: {', '.join(PRODUCTS.keys())}")
         sys.exit(1)
     cfg = PRODUCTS[product_key]
-    print(f"\n{'='*60}\n  {cfg['name']}  (max {max_pages} core pages per side)\n{'='*60}")
+
+    # 解析 providers 参数
+    providers = [p.strip() for p in args.providers.split(",") if p.strip()]
+    available = [p for p in providers if p in cfg and p in PROVIDER_CONFIG]
+    missing = [p for p in providers if p in PROVIDER_CONFIG and p not in cfg]
+    if missing:
+        print(f"[WARN] Product '{product_key}' has no config for: {', '.join(missing)} — skipped")
+    if not available:
+        print(f"[FAIL] No providers available for '{product_key}'. Got: {providers}, supported: {list(cfg.keys())}")
+        sys.exit(1)
+
+    print(f"\n{'='*60}\n  {cfg['name']}  (max {max_pages} core pages × {len(available)} providers)\n  Providers: {', '.join(available)}\n{'='*60}")
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(
             headless=True,
             args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
         )
-        # 阿里云：普通 context（不需要 stealth）
-        ctx_aliyun = await browser.new_context(
-            viewport={"width": 1920, "height": 1080},
-            locale="zh-CN",
-        )
-        # 华为云：stealth context（可选，通过 --stealth 启用，用于处理部分站点 JS 渲染兼容性问题）
-        ctx_huawei = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" if args.stealth else None,
-            viewport={"width": 1920, "height": 1080},
-            locale="zh-CN",
-        )
-        if args.stealth:
-            await ctx_huawei.add_init_script("Object.defineProperty(navigator, 'webdriver', { get: () => undefined });")
+        contexts = {}
         try:
-            aliyun = await scrape_side(
-                ctx_aliyun, "Aliyun",
-                cfg["aliyun"]["doc"], cfg["aliyun"]["changelog"],
-                ALIYUN_NAV_SELECTORS, max_pages,
-                deep_links=cfg["aliyun"].get("deep_links"),
-                content_selectors=ALIYUN_CONTENT_SELECTORS + FALLBACK_CONTENT_SELECTORS,
-                is_huawei=False,
-            )
-            huawei = await scrape_side(
-                ctx_huawei, "Huawei",
-                cfg["huawei"]["doc"], cfg["huawei"]["changelog"],
-                HUAWEI_NAV_SELECTORS, max_pages,
-                deep_links=cfg["huawei"].get("deep_links"),
-                content_selectors=HUAWEI_CONTENT_SELECTORS + FALLBACK_CONTENT_SELECTORS,
-                is_huawei=True,
-            )
+            # 为每个 provider 创建独立 context
+            for prov in available:
+                if prov == "huawei" and args.stealth:
+                    ctx = await browser.new_context(
+                        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                        viewport={"width": 1920, "height": 1080},
+                        locale="zh-CN",
+                    )
+                    await ctx.add_init_script("Object.defineProperty(navigator, 'webdriver', { get: () => undefined });")
+                else:
+                    ctx = await browser.new_context(
+                        viewport={"width": 1920, "height": 1080},
+                        locale="zh-CN",
+                    )
+                contexts[prov] = ctx
+
+            # 抓取每个 provider
+            providers_data = {}
+            for prov in available:
+                pcfg = PROVIDER_CONFIG[prov]
+                data = await scrape_side(
+                    contexts[prov], pcfg["label"],
+                    cfg[prov]["doc"], cfg[prov]["changelog"],
+                    pcfg["nav_selectors"], max_pages,
+                    deep_links=cfg[prov].get("deep_links"),
+                    content_selectors=pcfg["content_selectors"],
+                    is_huawei=pcfg["is_huawei"],
+                )
+                providers_data[pcfg["label"]] = data
         finally:
-            await ctx_aliyun.close()
-            await ctx_huawei.close()
+            for ctx in contexts.values():
+                await ctx.close()
             await browser.close()
 
-    md = build_markdown(cfg["name"], aliyun, huawei)
+    md = build_markdown(cfg["name"], providers_data)
     if output:
         Path(output).write_text(md, encoding="utf-8")
         print(f"\n[OK] Done! Saved to {output} ({len(md.encode())//1024} KB)")
@@ -682,19 +839,21 @@ async def main_async(product_key: str, max_pages: int, output: str, args):
         print("\n" + "=" * 60 + "\n" + md)
 
 def main():
-    parser = argparse.ArgumentParser(description="Aliyun & Huawei doc scraper v4")
+    parser = argparse.ArgumentParser(description="Aliyun & Huawei & AWS doc scraper v4")
     parser.add_argument("--product", default="",
         help="Product key. Available:\n" + "\n".join(f"  {k:<15} {v['name']}" for k, v in PRODUCTS.items()))
     parser.add_argument("--list", action="store_true", help="List all products")
     parser.add_argument("--output", default="", help="Output file path")
-    parser.add_argument("--max-pages", type=int, default=12, help="Max core pages per side (default 12)")
+    parser.add_argument("--max-pages", type=int, default=12, help="Max core pages per provider (default 12)")
+    parser.add_argument("--providers", default="aliyun,huawei", help="Comma-separated providers to compare (default: aliyun,huawei). Options: aliyun,huawei,aws")
     parser.add_argument("--stealth", action="store_true", help="Enable stealth mode for sites with JS rendering compatibility issues (use with caution)")
     args = parser.parse_args()
 
     if args.list:
         print("\nAvailable products:\n")
         for k, v in PRODUCTS.items():
-            print(f"  {k:<15} {v['name']}")
+            providers = [p for p in ["aliyun", "huawei", "aws"] if p in v]
+            print(f"  {k:<15} {v['name']:<50} providers: {','.join(providers)}")
         print(); return
     if not args.product:
         parser.print_help(); sys.exit(1)
