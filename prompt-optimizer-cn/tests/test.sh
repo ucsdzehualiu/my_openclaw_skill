@@ -1,5 +1,5 @@
 #!/bin/bash
-# prompt-optimizer 测试脚本（纯文本 skill，验证文档完整性）
+# prompt-optimizer 测试脚本（实用版 - 验证文档完整性和实用要素）
 set +e
 
 SKILL_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -32,7 +32,7 @@ run_test() {
 
 echo ""
 echo "##########################################"
-echo "  prompt-optimizer 测试套件"
+echo "  prompt-optimizer 测试套件（实用版）"
 echo "##########################################"
 
 # 1. SKILL.md 存在
@@ -50,40 +50,50 @@ run_test "YAML frontmatter - description 字段" \
   "head -10 SKILL.md 2>&1" \
   "description:"
 
-# 4. 包含 CO-STAR 方法论
-run_test "方法论 - CO-STAR 框架" \
+# 4. 包含 RTCF 实用框架
+run_test "实用框架 - RTCF" \
   "cat SKILL.md 2>&1" \
-  "CO-STAR"
+  "RTCF"
 
-# 5. 包含 Chain-of-Thought
-run_test "方法论 - Chain-of-Thought" \
+# 5. 包含角色（Role）补全说明
+run_test "RTCF - Role 角色" \
   "cat SKILL.md 2>&1" \
-  "Chain-of-Thought"
+  "Role"
 
-# 6. 包含 ACON
-run_test "方法论 - ACON" \
+# 6. 包含格式（Format）补全说明
+run_test "RTCF - Format 格式" \
   "cat SKILL.md 2>&1" \
-  "ACON"
+  "Format"
 
-# 7. 包含 APE
-run_test "方法论 - APE" \
-  "cat SKILL.md 2>&1" \
-  "APE"
+# 7. 至少有 4 个真实示例
+run_test "示例数量 - 至少 4 个" \
+  "grep -c '示例 [0-9]' SKILL.md 2>&1" \
+  "[4-9]"
 
-# 8. 包含 Self-Refine
-run_test "方法论 - Self-Refine" \
+# 8. 包含工作流程（诊断 → 补全 → 输出）
+run_test "工作流程 - 诊断" \
   "cat SKILL.md 2>&1" \
-  "Self-Refine"
+  "诊断"
 
 # 9. 双语支持
 run_test "双语支持 - 检测语言提示" \
   "cat SKILL.md 2>&1" \
   "Chinese\|English\|双语\|中文"
 
-# 10. 删除的 en 版本不应存在
+# 10. 已移除论文方法论引用（实用化验证）
+run_test "已去除学术化方法论 - 不应包含 ACON" \
+  "cat SKILL.md 2>&1 | grep -c 'ACON' || echo 0" \
+  "^0$"
+
+# 11. 删除的 en 版本不应存在
 run_test "prompt-optimizer-en 已删除" \
   "ls ../prompt-optimizer-en 2>&1 || echo 'NOT_FOUND'" \
   "NOT_FOUND"
+
+# 12. 触发条件清晰
+run_test "明确触发条件" \
+  "cat SKILL.md 2>&1" \
+  "优化提示词\|改进prompt\|优化一下"
 
 # 总结
 echo ""
