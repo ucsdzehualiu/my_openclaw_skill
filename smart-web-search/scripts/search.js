@@ -142,14 +142,23 @@ function dedupKey(url) {
   } catch { return url.toLowerCase(); }
 }
 
-// ==================== 依赖检查 ====================
-async function ensureDeps() {
-  try { await import('cheerio'); } catch {
-    child_process.execSync('npm install cheerio --silent', { stdio: 'inherit', cwd: SKILL_ROOT });
+// ==================== 依赖检查（不自动安装）====================
+async function checkDeps() {
+  const missing = [];
+  for (const mod of ['cheerio', 'commander', 'playwright']) {
+    try { await import(mod); } catch { missing.push(mod); }
   }
-  try { await import('commander'); } catch {
-    child_process.execSync('npm install commander --silent', { stdio: 'inherit', cwd: SKILL_ROOT });
-  }
+  if (missing.length === 0) return;
+
+  console.error(`\n[X] smart-web-search 缺少依赖: ${missing.join(', ')}\n`);
+  console.error('   一键安装（推荐）:');
+  console.error(`     cd "${SKILL_ROOT}" && bash scripts/setup.sh`);
+  console.error('   Windows:');
+  console.error(`     cd "${SKILL_ROOT}"; powershell -File scripts/setup.ps1\n`);
+  console.error('   手动安装:');
+  console.error(`     cd "${SKILL_ROOT}" && npm install && npx playwright install chromium\n`);
+  console.error('   详细文档: 见 SKILL.md「安装」章节\n');
+  process.exit(2);
 }
 
 // ==================== 区域检测 ====================
@@ -158,17 +167,6 @@ async function detectInChina() {
   if (_inChinaCache !== null) return _inChinaCache;
   const probes = [
     (async () => {
-      for (const url of ['https://myip.ipip.net', 'https://cip.cc']) {
-        try {
-          const r = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(3000) });
-          if (!r.ok) continue;
-          const text = await r.text();
-          if (/中国|CN/i.test(text)) return { inChina: true, label: 'CN probe' };
-        } catch {}
-      }
-      throw new Error('cn probe failed');
-    })(),
-    (async () => {
       for (const url of ['https://ipinfo.io/json', 'https://ipapi.co/json/']) {
         try {
           const r = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(3000) });
@@ -176,14 +174,14 @@ async function detectInChina() {
           const d = await r.json();
           const cc = String(d.country || d.country_code || '').toUpperCase();
           if (!cc) continue;
-          return { inChina: cc === 'CN', label: `intl probe → ${cc}` };
+          return { inChina: cc === 'CN', label: `IP probe → ${cc}` };
         } catch {}
       }
       throw new Error('intl probe failed');
     })(),
     (async () => {
       const r = await fetch('https://cn.bing.com', { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(3000), redirect: 'manual' });
-      return { inChina: r.status === 200 || r.status === 302, label: `cn.bing.com → ${r.status}` };
+      return { inChina: r.status === 200 || r.status === 302, label: `cn.bing.com probe → ${r.status}` };
     })(),
   ];
   try {
@@ -192,9 +190,9 @@ async function detectInChina() {
     _inChinaCache = winner.inChina;
     return winner.inChina;
   } catch {
-    console.error('[地理] 检测失败，默认国内');
-    _inChinaCache = true;
-    return true;
+    console.error('[地理] 检测失败（可能使用代理），默认国外（使用 DDG）');
+    _inChinaCache = false; // 改为默认 false，使用 DDG
+    return false;
   }
 }
 
@@ -268,9 +266,7 @@ async function getBingCookies() {
       locale: 'zh-CN',
       viewport: { width: 1280, height: 800 },
     });
-    await ctx.addInitScript(() => {
-      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-    });
+    // 标准浏览器上下文。Bing 取不到结果时，HTTP 路径会回退到 DDG。
 
     const page = await ctx.newPage();
     // 访问首页建立 session 并获取 cookies
@@ -383,14 +379,31 @@ async function searchDDGHtml(query, max) {
 // ==================== 自动抓取正文 ====================
 async function autoFetch(results, fetchCount, maxLen) {
   if (fetchCount <= 0 || results.length === 0) return;
-  const urls = results.slice(0, Math.min(fetchCount, results.length)).map(r => r.url);
-  console.error(`[fetch] 抓取 ${urls.length} 条正文...`);
+  const safeUrls = results
+    .slice(0, Math.min(fetchCount, results.length))
+    .map(r => r.url)
+    .filter(u => /^https?:\/\//i.test(u));
+  if (safeUrls.length === 0) return;
+  console.error(`[fetch] 抓取 ${safeUrls.length} 条正文...`);
   try {
-    const raw = child_process.execSync(
-      `node "${path.resolve(__dirname, 'fetch.js')}" ${urls.map(u => `"${u}"`).join(' ')} --max-len=${maxLen}`,
-      { encoding: 'utf8', timeout: 60000, stdio: ['pipe', 'pipe', 'pipe'], cwd: SKILL_ROOT }
-    );
-    const fetched = JSON.parse(raw);
+    const fetchScript = path.resolve(__dirname, 'fetch.js');
+    const args = [fetchScript, ...safeUrls, `--max-len=${maxLen}`];
+    const result = child_process.spawnSync(process.execPath, args, {
+      encoding: 'utf8',
+      timeout: 60000,
+      shell: false,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 16 * 1024 * 1024,
+    });
+    if (result.error) {
+      console.error(`[fetch] 抓取失败: ${result.error.message}`);
+      return;
+    }
+    if (result.status !== 0) {
+      console.error(`[fetch] 抓取退出码 ${result.status}`);
+      return;
+    }
+    const fetched = JSON.parse(result.stdout);
     for (let i = 0; i < Math.min(fetchCount, fetched.length); i++) {
       if (fetched[i]?.content) results[i].content = fetched[i].content.slice(0, maxLen);
     }
@@ -403,12 +416,11 @@ async function autoFetch(results, fetchCount, maxLen) {
 // ==================== main ====================
 async function main() {
   const startTime = Date.now();
-  await ensureDeps();
+  await checkDeps();
   const { program } = await import('commander');
   program
     .argument('[query...]', '搜索关键词')
     .option('--max <n>', '最大结果数 (1-30)', v => parseInt(v, 10), DEFAULT_MAX)
-    .option('--region <r>', '区域: auto/cn/intl', 'auto')
     .option('--fetch <n>', '自动抓取前N条正文 (0=不抓)', v => parseInt(v, 10), DEFAULT_FETCH)
     .option('--max-len <n>', '单页最大字符数', v => parseInt(v, 10), 6000)
     .option('--no-fetch', '禁用正文抓取')
@@ -434,10 +446,8 @@ async function main() {
   const fetchCount = opts.noFetch ? 0 : (typeof opts.fetch === 'number' ? opts.fetch : DEFAULT_FETCH);
   const maxLen = opts.maxLen || 6000;
 
-  let inChina;
-  if (opts.region === 'cn') inChina = true;
-  else if (opts.region === 'intl') inChina = false;
-  else inChina = await detectInChina();
+  // 自动检测区域（不再使用 --region 参数）
+  const inChina = await detectInChina();
 
   const out = [], seen = new Set();
   const add = (items) => {

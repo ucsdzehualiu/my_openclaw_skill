@@ -3,7 +3,6 @@
  * free-web-search-js environment check v28
  */
 
-import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -15,20 +14,14 @@ const skillRoot = path.resolve(__dirname, '..');
 function main() {
   const lines = [];
 
-  // Node.js
-  let nodeOk = false;
-  try {
-    const v = execSync('node --version', { encoding: 'utf-8', timeout: 5000 }).trim();
-    const major = parseInt(v.replace('v', '').split('.')[0]);
-    nodeOk = major >= 18;
-    if (nodeOk) {
-      lines.push(`[OK] Node.js ${v} (>= 18)`);
-    } else {
-      lines.push(`[X] Node.js >= 18 required (current: ${v})`);
-      lines.push(`   -> https://nodejs.org`);
-    }
-  } catch {
-    lines.push(`[X] Node.js not found`);
+  // Node.js (use process.versions, no subprocess)
+  const v = `v${process.versions.node}`;
+  const major = parseInt(process.versions.node.split('.')[0], 10);
+  const nodeOk = major >= 18;
+  if (nodeOk) {
+    lines.push(`[OK] Node.js ${v} (>= 18)`);
+  } else {
+    lines.push(`[X] Node.js >= 18 required (current: ${v})`);
     lines.push(`   -> https://nodejs.org`);
   }
 

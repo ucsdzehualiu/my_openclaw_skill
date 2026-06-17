@@ -9,25 +9,11 @@ const { chromium } = playwrightPkg;
 export const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const SKILL_ROOT = path.resolve(__dirname, '..');
 export const ENDPOINT_FILE = path.join(SKILL_ROOT, '.browser-endpoint');
+// 浏览器启动参数：用于在 Linux/Docker 环境下让 Chromium 稳定启动。
 export const BROWSER_ARGS = [
   '--no-sandbox',
   '--disable-setuid-sandbox',
   '--disable-dev-shm-usage',
-  '--disable-blink-features=AutomationControlled',
-  '--disable-features=IsolateOrigins,site-per-process',
-  '--disable-site-isolation-trials',
-  '--disable-web-security',
-  '--disable-infobars',
-  '--window-size=1920,1080',
-  '--disable-extensions',
-  '--no-first-run',
-  '--no-default-browser-check',
-  '--disable-background-networking',
-  '--disable-sync',
-  '--metrics-recording-only',
-  '--disable-default-apps',
-  '--mute-audio',
-  '--no-zygote',
   '--disable-accelerated-2d-canvas',
   '--disable-gpu',
 ];

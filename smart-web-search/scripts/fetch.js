@@ -43,8 +43,6 @@ function releaseBrowser(browser, shared) {
 }
 
 const PAGE_COMPAT_INIT = () => {
-  Object.defineProperty(navigator, 'webdriver', { get: () => false });
-  window.chrome = { runtime: {} };
   const origQuery = window.navigator.permissions?.query;
   if (origQuery) {
     window.navigator.permissions.query = (params) => (
@@ -55,19 +53,23 @@ const PAGE_COMPAT_INIT = () => {
   }
 };
 
-async function ensureDeps() {
-  try { await import('cheerio'); } catch {
-    child_process.execSync('npm install cheerio --silent', { stdio: 'inherit' });
+async function checkDeps() {
+  const missing = [];
+  for (const mod of ['cheerio', 'commander', 'iconv-lite', 'playwright']) {
+    try { await import(mod); } catch { missing.push(mod); }
   }
-  try { await import('commander'); } catch {
-    child_process.execSync('npm install commander --silent', { stdio: 'inherit' });
-  }
-  try { await import('iconv-lite'); } catch {
-    child_process.execSync('npm install iconv-lite --silent', { stdio: 'inherit' });
-  }
-  try { await import('playwright'); } catch {
-    console.error('[WARN] playwright 未安装，headed 兜底不可用');
-  }
+  if (missing.length === 0) return;
+
+  const skillRoot = path.resolve(__dirname, '..');
+  console.error(`\n[X] smart-web-search 缺少依赖: ${missing.join(', ')}\n`);
+  console.error('   一键安装（推荐）:');
+  console.error(`     cd "${skillRoot}" && bash scripts/setup.sh`);
+  console.error('   Windows:');
+  console.error(`     cd "${skillRoot}"; powershell -File scripts/setup.ps1\n`);
+  console.error('   手动安装:');
+  console.error(`     cd "${skillRoot}" && npm install && npx playwright install chromium\n`);
+  console.error('   详细文档: 见 SKILL.md「安装」章节\n');
+  process.exit(2);
 }
 
 // ==================== 编码处理 ====================
@@ -350,7 +352,7 @@ async function fetchUrl(url, maxLen) {
 
 // ==================== main ====================
 async function main() {
-  await ensureDeps();
+  await checkDeps();
   const { program } = await import('commander');
   program
     .argument('<urls...>', '要抓取的 URL，多个并行')

@@ -4,7 +4,7 @@
 
 v4.1 改进：
   - 依赖检测替代自动安装：缺失时提示用户手动安装，不静默下载包或浏览器
-  - Stealth 模式改为可选（--stealth）：默认关闭，仅在用户显式启用时生效
+  - 扩展兼容模式改为可选（--stealth）：默认关闭，仅在用户显式启用时生效
   - 保留 HTTP fallback（httpx+BS4）作为 Playwright 的补充
 
 v4 改进（相比 ClawHub v1.0.3）：
@@ -27,7 +27,7 @@ v4 改进（相比 ClawHub v1.0.3）：
     python cloud_doc_scraper.py --product ecs
     python cloud_doc_scraper.py --product oss --output oss_docs.md
     python cloud_doc_scraper.py --product rds --max-pages 15
-    python cloud_doc_scraper.py --product ecs --stealth   # 启用 stealth 模式（谨慎使用）
+    python cloud_doc_scraper.py --product ecs --stealth   # 启用扩展兼容模式（谨慎使用）
     python cloud_doc_scraper.py --list   # 查看所有支持的产品
 """
 
@@ -139,6 +139,14 @@ PRODUCTS = {
                     {"text": "实例购买选项", "url": "https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/instance-purchasing-options.html"},
                     {"text": "EC2 功能", "url": "https://aws.amazon.com/cn/ec2/features/"},
                 ]},
+        "tencent": {"doc": "https://cloud.tencent.com/document/product/213", "changelog": "https://cloud.tencent.com/document/product/213/14751",
+                    "deep_links": [
+                        {"text": "产品概述", "url": "https://cloud.tencent.com/document/product/213/495"},
+                        {"text": "实例类型", "url": "https://cloud.tencent.com/document/product/213/11518"},
+                        {"text": "镜像类型", "url": "https://cloud.tencent.com/document/product/213/4941"},
+                        {"text": "计费模式", "url": "https://cloud.tencent.com/document/product/213/2180"},
+                        {"text": "应用场景", "url": "https://cloud.tencent.com/document/product/213/4953"},
+                    ]},
     },
     "oss": {
         "name": "对象存储 OSS / OBS / S3",
@@ -158,6 +166,13 @@ PRODUCTS = {
                     {"text": "S3 功能", "url": "https://aws.amazon.com/cn/s3/features/"},
                     {"text": "S3 性能指南", "url": "https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/optimizing-performance.html"},
                 ]},
+        "tencent": {"doc": "https://cloud.tencent.com/document/product/436", "changelog": "https://cloud.tencent.com/document/product/436/30246",
+                    "deep_links": [
+                        {"text": "产品概述", "url": "https://cloud.tencent.com/document/product/436/6222"},
+                        {"text": "存储类型", "url": "https://cloud.tencent.com/document/product/436/33417"},
+                        {"text": "应用场景", "url": "https://cloud.tencent.com/document/product/436/32433"},
+                        {"text": "计费概述", "url": "https://cloud.tencent.com/document/product/436/16871"},
+                    ]},
     },
     "rds": {
         "name": "云数据库 RDS / RDS for MySQL",
@@ -177,6 +192,13 @@ PRODUCTS = {
                     {"text": "实例类", "url": "https://docs.aws.amazon.com/zh_cn/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html"},
                     {"text": "RDS 功能", "url": "https://aws.amazon.com/cn/rds/features/"},
                 ]},
+        "tencent": {"doc": "https://cloud.tencent.com/document/product/236", "changelog": "https://cloud.tencent.com/document/product/236/35781",
+                    "deep_links": [
+                        {"text": "产品概述", "url": "https://cloud.tencent.com/document/product/236/8123"},
+                        {"text": "实例规格", "url": "https://cloud.tencent.com/document/product/236/53465"},
+                        {"text": "购买实例", "url": "https://cloud.tencent.com/document/product/236/37785"},
+                        {"text": "数据库版本", "url": "https://cloud.tencent.com/document/product/236/5147"},
+                    ]},
     },
     "redis": {
         "name": "云数据库 Redis / DCS / ElastiCache",
@@ -195,6 +217,13 @@ PRODUCTS = {
                     {"text": "节点类型", "url": "https://docs.aws.amazon.com/zh_cn/AmazonElastiCache/latest/red-ug/CacheNodes.SupportedTypes.html"},
                     {"text": "ElastiCache 功能", "url": "https://aws.amazon.com/cn/elasticache/features/"},
                 ]},
+        "tencent": {"doc": "https://cloud.tencent.com/document/product/239", "changelog": "https://cloud.tencent.com/document/product/239/18336",
+                    "deep_links": [
+                        {"text": "产品概述", "url": "https://cloud.tencent.com/document/product/239/3205"},
+                        {"text": "产品架构", "url": "https://cloud.tencent.com/document/product/239/3206"},
+                        {"text": "实例规格", "url": "https://cloud.tencent.com/document/product/239/9479"},
+                        {"text": "应用场景", "url": "https://cloud.tencent.com/document/product/239/3207"},
+                    ]},
     },
     "ack": {
         "name": "容器服务 ACK / CCE / EKS",
@@ -212,6 +241,13 @@ PRODUCTS = {
                     {"text": "EKS 功能", "url": "https://aws.amazon.com/cn/eks/features/"},
                     {"text": "Kubernetes 版本", "url": "https://docs.aws.amazon.com/zh_cn/eks/latest/userguide/kubernetes-versions.html"},
                 ]},
+        "tencent": {"doc": "https://cloud.tencent.com/document/product/457", "changelog": "https://cloud.tencent.com/document/product/457/72757",
+                    "deep_links": [
+                        {"text": "产品概述", "url": "https://cloud.tencent.com/document/product/457/6759"},
+                        {"text": "Kubernetes 版本", "url": "https://cloud.tencent.com/document/product/457/35506"},
+                        {"text": "TKE 与原生差异", "url": "https://cloud.tencent.com/document/product/457/9098"},
+                        {"text": "集群类型", "url": "https://cloud.tencent.com/document/product/457/35745"},
+                    ]},
     },
     "fc": {
         "name": "函数计算 FC / FunctionGraph / Lambda",
@@ -229,6 +265,13 @@ PRODUCTS = {
                     {"text": "运行时支持", "url": "https://docs.aws.amazon.com/zh_cn/lambda/latest/dg/lambda-runtimes.html"},
                     {"text": "配额", "url": "https://docs.aws.amazon.com/zh_cn/lambda/latest/dg/gettingstarted-limits.html"},
                 ]},
+        "tencent": {"doc": "https://cloud.tencent.com/document/product/583", "changelog": "https://cloud.tencent.com/document/product/583/9707",
+                    "deep_links": [
+                        {"text": "产品概述", "url": "https://cloud.tencent.com/document/product/583/9180"},
+                        {"text": "运行环境", "url": "https://cloud.tencent.com/document/product/583/15847"},
+                        {"text": "应用场景", "url": "https://cloud.tencent.com/document/product/583/9181"},
+                        {"text": "使用限制", "url": "https://cloud.tencent.com/document/product/583/11637"},
+                    ]},
     },
     "slb": {
         "name": "负载均衡 SLB / ELB / ELB",
@@ -245,6 +288,13 @@ PRODUCTS = {
                     {"text": "什么是 ELB", "url": "https://docs.aws.amazon.com/zh_cn/elasticloadbalancing/latest/userguide/what-is-load-balancing.html"},
                     {"text": "ELB 功能对比", "url": "https://aws.amazon.com/cn/elasticloadbalancing/features/"},
                 ]},
+        "tencent": {"doc": "https://cloud.tencent.com/document/product/214", "changelog": "https://cloud.tencent.com/document/product/214/45935",
+                    "deep_links": [
+                        {"text": "产品概述", "url": "https://cloud.tencent.com/document/product/214/524"},
+                        {"text": "实例类型", "url": "https://cloud.tencent.com/document/product/214/41706"},
+                        {"text": "性能容量型实例", "url": "https://cloud.tencent.com/document/product/214/55799"},
+                        {"text": "应用场景", "url": "https://cloud.tencent.com/document/product/214/525"},
+                    ]},
     },
     "maxcompute": {
         "name": "大数据 MaxCompute / MRS / EMR",
@@ -261,6 +311,13 @@ PRODUCTS = {
                     {"text": "EMR 功能", "url": "https://aws.amazon.com/cn/emr/features/"},
                     {"text": "组件版本", "url": "https://docs.aws.amazon.com/zh_cn/emr/latest/ReleaseGuide/emr-release-components.html"},
                 ]},
+        "tencent": {"doc": "https://cloud.tencent.com/document/product/589", "changelog": "https://cloud.tencent.com/document/product/589/14624",
+                    "deep_links": [
+                        {"text": "产品概述", "url": "https://cloud.tencent.com/document/product/589/10018"},
+                        {"text": "组件版本", "url": "https://cloud.tencent.com/document/product/589/20279"},
+                        {"text": "应用场景", "url": "https://cloud.tencent.com/document/product/589/10019"},
+                        {"text": "集群类型", "url": "https://cloud.tencent.com/document/product/589/35234"},
+                    ]},
     },
     "pai": {
         "name": "AI 平台 PAI / ModelArts / SageMaker",
@@ -277,17 +334,38 @@ PRODUCTS = {
                     {"text": "SageMaker 功能", "url": "https://aws.amazon.com/cn/sagemaker/features/"},
                     {"text": "实例类型", "url": "https://docs.aws.amazon.com/zh_cn/sagemaker/latest/dg/instance-types.html"},
                 ]},
+        "tencent": {"doc": "https://cloud.tencent.com/document/product/851", "changelog": "https://cloud.tencent.com/document/product/851/47602",
+                    "deep_links": [
+                        {"text": "产品概述", "url": "https://cloud.tencent.com/document/product/851/39945"},
+                        {"text": "产品功能", "url": "https://cloud.tencent.com/document/product/851/39946"},
+                        {"text": "应用场景", "url": "https://cloud.tencent.com/document/product/851/40109"},
+                        {"text": "计费概述", "url": "https://cloud.tencent.com/document/product/851/41239"},
+                    ]},
     },
     "bailian": {
-        "name": "大模型平台 百炼 / 盘古 / Bedrock",
+        "name": "大模型平台 百炼 / MaaS(ModelArts Studio) / Bedrock",
         "aliyun": {"doc": "https://help.aliyun.com/zh/bailian", "changelog": "https://help.aliyun.com/zh/bailian/release-notes"},
-        "huawei": {"doc": "https://support.huaweicloud.cn/pangu/index.html", "changelog": "https://support.huaweicloud.cn/wtsnew-pangu/index.html"},
+        "huawei": {"doc": "https://support.huaweicloud.com/usermanual-maas-modelarts/maas_01_0001.html",
+                   "changelog": "https://support.huaweicloud.cn/wtsnew-modelarts/index.html",
+                   "deep_links": [
+                       {"text": "MaaS 服务介绍", "url": "https://support.huaweicloud.com/usermanual-maas-modelarts/maas_01_0001.html"},
+                       {"text": "支持的模型", "url": "https://support.huaweicloud.com/usermanual-maas-modelarts/maas_01_0002.html"},
+                       {"text": "模型推理服务", "url": "https://support.huaweicloud.com/usermanual-maas-modelarts/maas_01_0030.html"},
+                       {"text": "模型应用调测", "url": "https://support.huaweicloud.com/usermanual-maas-modelarts/maas_01_0040.html"},
+                   ]},
         "aws": {"doc": "https://docs.aws.amazon.com/zh_cn/bedrock/latest/userguide/what-is-bedrock.html", "changelog": "https://docs.aws.amazon.com/zh_cn/bedrock/latest/userguide/doc-history.html",
                 "deep_links": [
                     {"text": "什么是 Bedrock", "url": "https://docs.aws.amazon.com/zh_cn/bedrock/latest/userguide/what-is-bedrock.html"},
                     {"text": "支持的基础模型", "url": "https://docs.aws.amazon.com/zh_cn/bedrock/latest/userguide/models-supported.html"},
                     {"text": "Bedrock 功能", "url": "https://aws.amazon.com/cn/bedrock/features/"},
                 ]},
+        "tencent": {"doc": "https://cloud.tencent.com/document/product/1729", "changelog": "https://cloud.tencent.com/document/product/1729/97732",
+                    "deep_links": [
+                        {"text": "产品概述", "url": "https://cloud.tencent.com/document/product/1729/97731"},
+                        {"text": "模型介绍", "url": "https://cloud.tencent.com/document/product/1729/104753"},
+                        {"text": "应用场景", "url": "https://cloud.tencent.com/document/product/1729/97734"},
+                        {"text": "计费概述", "url": "https://cloud.tencent.com/document/product/1729/97735"},
+                    ]},
     },
     "cdn": {
         "name": "CDN / CDN / CloudFront",
@@ -306,6 +384,13 @@ PRODUCTS = {
                     {"text": "CloudFront 功能", "url": "https://aws.amazon.com/cn/cloudfront/features/"},
                     {"text": "请求和响应行为", "url": "https://docs.aws.amazon.com/zh_cn/AmazonCloudFront/latest/DeveloperGuide/RequestAndResponseBehavior.html"},
                 ]},
+        "tencent": {"doc": "https://cloud.tencent.com/document/product/228", "changelog": "https://cloud.tencent.com/document/product/228/41148",
+                    "deep_links": [
+                        {"text": "产品概述", "url": "https://cloud.tencent.com/document/product/228/2939"},
+                        {"text": "产品架构", "url": "https://cloud.tencent.com/document/product/228/2941"},
+                        {"text": "应用场景", "url": "https://cloud.tencent.com/document/product/228/2940"},
+                        {"text": "使用限制", "url": "https://cloud.tencent.com/document/product/228/35316"},
+                    ]},
     },
     "nas": {
         "name": "文件存储 NAS / SFS / EFS",
@@ -324,6 +409,13 @@ PRODUCTS = {
                     {"text": "EFS 功能", "url": "https://aws.amazon.com/cn/efs/features/"},
                     {"text": "性能", "url": "https://docs.aws.amazon.com/zh_cn/efs/latest/ug/performance.html"},
                 ]},
+        "tencent": {"doc": "https://cloud.tencent.com/document/product/582", "changelog": "https://cloud.tencent.com/document/product/582/41085",
+                    "deep_links": [
+                        {"text": "产品概述", "url": "https://cloud.tencent.com/document/product/582/9127"},
+                        {"text": "存储类型", "url": "https://cloud.tencent.com/document/product/582/76199"},
+                        {"text": "应用场景", "url": "https://cloud.tencent.com/document/product/582/9128"},
+                        {"text": "使用限制", "url": "https://cloud.tencent.com/document/product/582/12009"},
+                    ]},
     },
     "flink": {
         "name": "实时计算 Flink / DLI / Kinesis Data Analytics",
@@ -339,6 +431,13 @@ PRODUCTS = {
                     {"text": "什么是 Managed Service for Apache Flink", "url": "https://docs.aws.amazon.com/zh_cn/managed-flink/latest/java/what-is.html"},
                     {"text": "功能", "url": "https://aws.amazon.com/cn/managed-service-apache-flink/features/"},
                 ]},
+        "tencent": {"doc": "https://cloud.tencent.com/document/product/849", "changelog": "https://cloud.tencent.com/document/product/849/55369",
+                    "deep_links": [
+                        {"text": "产品概述", "url": "https://cloud.tencent.com/document/product/849/48246"},
+                        {"text": "产品架构", "url": "https://cloud.tencent.com/document/product/849/48249"},
+                        {"text": "应用场景", "url": "https://cloud.tencent.com/document/product/849/48247"},
+                        {"text": "支持的 Flink 版本", "url": "https://cloud.tencent.com/document/product/849/48254"},
+                    ]},
     },
     "elasticsearch": {
         "name": "搜索 Elasticsearch / CSS / OpenSearch",
@@ -357,6 +456,13 @@ PRODUCTS = {
                     {"text": "OpenSearch 功能", "url": "https://aws.amazon.com/cn/opensearch-service/features/"},
                     {"text": "支持的版本", "url": "https://docs.aws.amazon.com/zh_cn/opensearch-service/latest/developerguide/what-is.html#choosing-version"},
                 ]},
+        "tencent": {"doc": "https://cloud.tencent.com/document/product/845", "changelog": "https://cloud.tencent.com/document/product/845/35530",
+                    "deep_links": [
+                        {"text": "产品概述", "url": "https://cloud.tencent.com/document/product/845/16475"},
+                        {"text": "产品功能", "url": "https://cloud.tencent.com/document/product/845/16476"},
+                        {"text": "支持版本", "url": "https://cloud.tencent.com/document/product/845/18375"},
+                        {"text": "应用场景", "url": "https://cloud.tencent.com/document/product/845/16477"},
+                    ]},
     },
     "dws": {
         "name": "数据仓库 AnalyticDB / GaussDB(DWS) / Redshift",
@@ -384,6 +490,13 @@ PRODUCTS = {
                     {"text": "节点类型", "url": "https://docs.aws.amazon.com/zh_cn/redshift/latest/mgmt/working-with-clusters.html#rs-node-types"},
                     {"text": "Redshift Serverless", "url": "https://docs.aws.amazon.com/zh_cn/redshift/latest/mgmt/serverless-whatis.html"},
                 ]},
+        "tencent": {"doc": "https://cloud.tencent.com/document/product/878", "changelog": "https://cloud.tencent.com/document/product/878/55831",
+                    "deep_links": [
+                        {"text": "产品概述", "url": "https://cloud.tencent.com/document/product/878/46342"},
+                        {"text": "产品架构", "url": "https://cloud.tencent.com/document/product/878/46344"},
+                        {"text": "应用场景", "url": "https://cloud.tencent.com/document/product/878/46343"},
+                        {"text": "技术规格", "url": "https://cloud.tencent.com/document/product/878/55818"},
+                    ]},
     },
 }
 
@@ -417,6 +530,11 @@ HUAWEI_NAV_SELECTORS = [
 AWS_NAV_SELECTORS = [
     "#sidebar a", ".awsui-side-navigation a", "[data-testid='sidebar'] a",
     "nav a", ".sidebar a", "[role='navigation'] a",
+]
+TENCENT_NAV_SELECTORS = [
+    ".J-doc-tree a", ".doc-tree a", ".doc-toc a", ".cloud-doc-content-wrap a",
+    "[class*='doc-tree'] a", "[class*='doc-nav'] a", "[class*='catalog'] a",
+    "nav a", "aside a", "[role='navigation'] a",
 ]
 
 async def parse_toc(page, base_url: str, nav_selectors: list, label: str) -> list:
@@ -455,6 +573,10 @@ HUAWEI_CONTENT_SELECTORS = [
 AWS_CONTENT_SELECTORS = [
     "#main-content", ".awsui-util-container", "[data-testid='main-content']",
     "main", "article", ".main-content",
+]
+TENCENT_CONTENT_SELECTORS = [
+    ".J-markdown-body", ".doc-detail-content", "#docContent",
+    ".cloud-doc-content", "[class*='markdown-body']", "main", "article",
 ]
 FALLBACK_CONTENT_SELECTORS = ["main", ".main-content", ".content"]
 
@@ -768,6 +890,12 @@ PROVIDER_CONFIG = {
         "content_selectors": AWS_CONTENT_SELECTORS + FALLBACK_CONTENT_SELECTORS,
         "is_huawei": False,
     },
+    "tencent": {
+        "label": "Tencent",
+        "nav_selectors": TENCENT_NAV_SELECTORS,
+        "content_selectors": TENCENT_CONTENT_SELECTORS + FALLBACK_CONTENT_SELECTORS,
+        "is_huawei": False,
+    },
 }
 
 # ─── 主入口 ───────────────────────────────────────────────────────────────────
@@ -846,7 +974,7 @@ def main():
     parser.add_argument("--output", default="", help="Output file path")
     parser.add_argument("--max-pages", type=int, default=12, help="Max core pages per provider (default 12)")
     parser.add_argument("--providers", default="aliyun,huawei", help="Comma-separated providers to compare (default: aliyun,huawei). Options: aliyun,huawei,aws")
-    parser.add_argument("--stealth", action="store_true", help="Enable stealth mode for sites with JS rendering compatibility issues (use with caution)")
+    parser.add_argument("--stealth", action="store_true", help="Enable extended browser context for JS-heavy sites with rendering compatibility issues (use with caution)")
     args = parser.parse_args()
 
     if args.list:

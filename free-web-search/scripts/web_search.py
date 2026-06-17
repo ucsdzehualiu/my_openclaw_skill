@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-free-web-search v7
-意图识别 + query改写 + 请求节流 + 结果质量评分 + 单域名排除重试 + 保留CSS"""
+free-web-search v8
+意图识别 + query改写 + 请求节流 + 结果质量评分 + 单域名排除重试
+
+运行说明：
+- 不在运行时安装/修改主机依赖（不会调用 pip/playwright install）
+- 仅使用 Playwright 默认 headless 模式
+- 不通过 shell 拼接外部 URL，所有页面访问通过 Playwright API 走参数化路径
+"""
 
 import sys
 import json
 import time
 import re
 import argparse
-import subprocess
 from urllib.parse import urlencode, quote, urlparse
 from datetime import datetime
 
@@ -39,7 +44,7 @@ UA = (
 )
 
 BLOCK_DOMAINS = [
-    # 知乎搜索结果可以抓全文（可能遇到反爬，但值得试）
+    # 知乎搜索结果保留，正文抓取尽力而为
 ]
 
 LOW_QUALITY_DOMAINS = [
@@ -113,51 +118,11 @@ def rewrite_query(query: str) -> tuple:
     return query, None
 
 
-# 反检测初始化脚本
-STEALTH_JS = """
-Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-Object.defineProperty(navigator, 'plugins', {
-    get: () => [
-        {name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer'},
-        {name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpafafjmlifpcpbgpcj'},
-        {name: 'Native Client Executable', filename: 'internal-nacl-plugin'}
-    ]
-});
-Object.defineProperty(navigator, 'languages', {get: () => ['zh-CN', 'zh', 'en']});
-Object.defineProperty(navigator, 'platform', {get: () => 'Win32'});
-Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8});
-Object.defineProperty(navigator, 'deviceMemory', {get: () => 8});
-window.chrome = {runtime: {}};
-const originalQuery = window.navigator.permissions.query;
-window.navigator.permissions.query = (parameters) => (
-    parameters.name === 'notifications' ?
-        Promise.resolve({ state: Notification.permission }) :
-        originalQuery(parameters)
-);
-const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
-HTMLCanvasElement.prototype.toDataURL = function(type) {
-    if (type === 'image/png' && this.width === 220 && this.height === 30) {
-        return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAANwAAAAeCAYAAABwJ3rwAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAABmJLR0QA/wD/AP+gvaeTAAAABmJLR0QA/wD/AP+gvaeTAAAABmJLR0QA/wD/AP+gvaeT';
-    }
-    return originalToDataURL.apply(this, arguments);
-};
-const getParameter = WebGLRenderingContext.prototype.getParameter;
-WebGLRenderingContext.prototype.getParameter = function(parameter) {
-    if (parameter === 37445) return 'Intel Inc.';
-    if (parameter === 37446) return 'Intel Iris OpenGL Engine';
-    return getParameter.apply(this, arguments);
-};
-"""
-
+# 浏览器启动参数（用于 Linux/容器环境的稳定性）
 BROWSER_ARGS = [
-    '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
-    '--disable-blink-features=AutomationControlled', '--disable-infobars',
-    '--disable-extensions', '--disable-background-networking', '--disable-sync',
-    '--metrics-recording-only', '--disable-default-apps', '--no-first-run',
-    '--disable-component-extensions-with-background-pages',
-    '--disable-features=IsolateOrigins,site-per-process',
-    '--disable-site-isolation-trials', '--disable-web-security',
-    '--allow-running-insecure-content',
+    '--no-sandbox',
+    '--disable-gpu',
+    '--disable-dev-shm-usage',
 ]
 
 ROUTE_PATTERN = "**/*.{png,jpg,jpeg,gif,svg,woff,woff2,ttf,mp4,ico,webp,js.map}"
@@ -166,20 +131,25 @@ _browser = None
 _playwright = None
 
 
-def ensure_playwright():
+def check_playwright():
+    """Check if playwright is installed. Exit with helpful message if not."""
     try:
-        import playwright; return
-    except ImportError: pass
-    print("[INFO] 安装 playwright...", file=sys.stderr)
-    for cmd in [
-        [sys.executable, "-m", "pip", "install", "-q", "playwright", "--break-system-packages"],
-        [sys.executable, "-m", "pip", "install", "-q", "playwright"],
-    ]:
-        if subprocess.run(cmd, capture_output=True, text=True).returncode == 0:
-            break
-    subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"],
-                   capture_output=True, text=True)
-    import os; os.execv(sys.executable, [sys.executable] + sys.argv)
+        import playwright
+        return
+    except ImportError:
+        import os
+        skill_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        print("\n[X] free-web-search 缺少依赖: playwright\n", file=sys.stderr)
+        print("   一键安装（推荐）:", file=sys.stderr)
+        print(f"     cd \"{skill_root}\" && bash scripts/setup.sh", file=sys.stderr)
+        print("   Windows:", file=sys.stderr)
+        print(f"     cd \"{skill_root}\"; powershell -File scripts/setup.ps1\n", file=sys.stderr)
+        print("   手动安装:", file=sys.stderr)
+        print(f"     cd \"{skill_root}\"", file=sys.stderr)
+        print("     pip install playwright", file=sys.stderr)
+        print("     playwright install chromium\n", file=sys.stderr)
+        print("   详细文档: 见 SKILL.md「安装」章节\n", file=sys.stderr)
+        sys.exit(2)
 
 
 def parse_args():
@@ -222,13 +192,13 @@ def close_browser():
     except: pass
 
 def create_context():
+    # 标准浏览器上下文，使用普通 UA 访问 Bing / DDG。
     ctx = _browser.new_context(
         locale="zh-CN", user_agent=UA,
         viewport={"width":1920,"height":1080}, screen={"width":1920,"height":1080},
         device_scale_factor=1, timezone_id="Asia/Shanghai",
         has_touch=False, is_mobile=False, java_script_enabled=True,
     )
-    ctx.add_init_script(STEALTH_JS)
     return ctx
 
 def throttle():
@@ -401,7 +371,7 @@ def fetch_full(url):
 
 # ==================== 主函数 ====================
 def main():
-    ensure_playwright()
+    check_playwright()
     query, max_results, full, engine, do_filter, no_rewrite = parse_args()
     if not query:
         print(json.dumps({"error": "no query"}, ensure_ascii=False)); sys.exit(1)

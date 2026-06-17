@@ -1,146 +1,180 @@
 ---
 name: free-web-search
-description: 基于Bing国内版的稳定联网搜索工具，中文环境深度优化，支持全文内容抓取，绕过常见反爬限制，返回结构化搜索结果。
-version: 7
+description: 基于 Bing 国内版 / DuckDuckGo 的联网搜索工具，中文环境优化，可按需抓取目标网页正文，返回结构化结果。仅在用户明确请求联网搜索时调用。
+version: 7.1.1
 author: free-web-search
+license: MIT
 trigger_keywords:
-  - 搜索
-  - 查一下
-  - 找一下
-  - 最新消息
-  - 新闻
-  - 最新动态
-  - 官网
-  - 教程
-  - 是什么
+  - free-web-search
+  - 联网搜索
+  - 网页搜索
+  - web search
 tools:
   - name: web_search
-    description: 联网搜索并返回结构化结果，中文环境优化，支持全文内容抓取
+    description: 联网搜索并返回结构化结果，中文环境优化，可选抓取网页正文（默认不抓取）
     script: scripts/web_search.py
     parameters:
       query:
         type: string
-        description: 【必填】搜索关键词/短句，必须简洁精准，符合下方Query优化规范，禁止长句/反问句
+        description: 【必填】搜索关键词/短句，简洁精准（2-5 个核心词），禁止长句/反问句
         required: true
       max:
         type: integer
-        description: 最大返回的搜索结果条数，默认10，最大不超过20
+        description: 最大返回的搜索结果条数，默认 10，最大 20
         required: false
       full:
         type: integer
-        description: 抓取前N条结果的网页全文内容，默认0（不抓取），最大不超过5
+        description: 抓取前 N 条结果的网页全文内容，默认 0（不抓取），最大 5
         required: false
       engine:
         type: string
-        description: 搜索引擎选择，bing/duckduckgo/auto（默认bing）
+        description: 搜索引擎选择，bing/duckduckgo/auto（默认 bing）
         required: false
       filter:
         type: boolean
-        description: 过滤低质量域名（如知乎），默认false（不过滤）
+        description: 过滤低质量域名（如知乎、百度知道），默认 false（不过滤）
         required: false
 ---
 
-# free-web-search v14 联网搜索工具
+# free-web-search 联网搜索工具
 
-基于 Playwright 浏览器实现的稳定搜索工具，**意图识别** + **请求节流** + **结果质量评分** + **保留CSS修复**。
+基于 Playwright 的 Bing 国内版 / DuckDuckGo 搜索工具。专注于**搜索 + 可选正文抓取**两件事，无副作用。
 
-## v14 更新内容
+## 触发方式
 
-- ✅ **[关键修复] 保留CSS**：之前拦截CSS导致Bing搜索结果标题文字丢失
-- ✅ **意图识别+query改写**：搜索质量差时自动改写query（城市游玩→景点推荐、今日价格→实时行情等）
-- ✅ **改写仅在质量差时触发**：先搜原始query，质量好就不改写，避免改写搞坏本来好的query
-- ✅ **请求节流**：两次Bing请求间隔≥3s，避免触发限流
-- ✅ **限流检测+退避**：0结果时递增等待重试，排除重试也0结果时停止
-- ✅ **`--filter` 回退**：过滤后为空自动回退到不过滤结果
-- ✅ **单域名排除重试**：最多2轮，结果更好才替换
-- ✅ **DuckDuckGo国内快速失败**：10s超时×1次
-- ✅ **`--no-rewrite`**：禁用query改写（调试用）
+仅在用户**明确请求联网搜索**时调用，例如：
+
+- "用 free-web-search 查一下 Python 异步教程"
+- "联网搜索 2026 年中国大型邮轮"
+- "web search: latest LLM benchmarks"
+
+trigger_keywords 已经收窄到只识别 `free-web-search`、`联网搜索`、`网页搜索`、`web search`，不会因为消息里出现"新闻"、"最新消息"这些常见词就把对话内容发到外部搜索引擎。
 
 ## 核心能力
 
-- ✅ **中文环境深度优化**：强制 Bing 返回中文结果
-- ✅ **反爬检测绕过**：多层反检测措施（stealth.js）
-- ✅ **全文抓取**：支持按需抓取目标网页的完整正文内容
-- ✅ **Headless 模式**：服务器可用，无需显示器
+- **中文环境优化**：默认 `mkt=zh-CN`，结果以中文为主
+- **可选全文抓取**：通过 `--full=N` 抓取前 N 条结果正文（默认 0 不抓取）
+- **质量评分**：低质量域名命中、单域名集中时自动重试
+- **意图改写**：搜索质量差时按预定义规则改写 query（可用 `--no-rewrite` 禁用）
+- **Headless 浏览器**：服务器/容器可用，仅开 `--no-sandbox`、`--disable-gpu`、`--disable-dev-shm-usage` 三个标准稳定性参数
 
----
+## 安装
 
-## 【核心必读】搜索Query优化规范
+**所有依赖必须在使用前手动安装。脚本运行时不会自动安装任何 npm/pip 包，也不会修改宿主环境。**
 
-**搜索效果的好坏，90%取决于Query是否合理**，请严格遵循以下规则生成搜索词：
+### 前置依赖
 
-### 一、黄金原则
-1.  **简洁精准**：只保留核心关键词，用2-5个核心词组合，禁止长句、反问句、口语化描述
-2.  **限定明确**：需要时效性/领域/地区内容时，必须加上对应的限定词
-3.  **格式正确**：使用中文关键词 + 英文/数字限定词，禁止特殊符号、无意义助词
+| 依赖 | 用途 | 备注 |
+|---|---|---|
+| Python 3.8+ | 运行时 | — |
+| playwright | 浏览器自动化 | `pip install playwright` |
+| Chromium | Playwright 浏览器引擎 | `playwright install chromium`（约 150 MB） |
 
-### 二、正确示例 vs 错误示例
-| 搜索场景 | 正确Query（推荐） | 错误Query（禁止） |
-|----------|--------------------|--------------------|
-| 时效性新闻 | 2026年04月 美伊局势 最新 | 你能帮我查一下最近美国和伊朗之间发生了什么事吗 |
-| 技术教程 | Python 异步编程 最佳实践 2026 | 我想学习一下Python的异步编程，有没有好的教程 |
-| 知识科普 | 中国大型邮轮 花城号 出坞 最新消息 | 中国的那个大型邮轮花城号现在怎么样了 |
-| 本地内容 | 广东东莞 今日天气 | 我现在在东莞，今天天气怎么样啊 |
-| 官方信息 | 华为云 ModelArts 官方文档 | 华为云的那个ModelArts的官网在哪里，文档怎么看 |
+### 一键安装
 
----
+```bash
+# Linux / macOS
+bash scripts/setup.sh
 
-## 参数说明
-| 参数名 | 类型 | 说明 | 默认值 | 取值限制 |
-|--------|------|------|--------|----------|
-| `query` | 字符串 | 【必填】搜索关键词 | - | 不能为空 |
-| `max` | 整数 | 最多返回的搜索结果条数 | 10 | 1-20 |
-| `full` | 整数 | 抓取前N条结果的网页全文 | 0 | 0-5 |
-| `engine` | 字符串 | 搜索引擎选择 | bing | bing/duckduckgo/auto |
-| `filter` | 布尔 | 过滤低质量域名 | false | - |
+# Windows
+powershell -File scripts/setup.ps1
+```
 
----
+### 手动安装
+
+```bash
+pip install playwright
+playwright install chromium
+```
 
 ## 使用示例
 
 ```bash
-# 基础搜索
-python scripts/web_search.py "经济新闻 今日" --max=10
+# 基础搜索（不抓正文）
+python scripts/web_search.py "Python 异步编程 最佳实践 2026" --max=10
 
-# 抓取前3条结果的全文
-python scripts/web_search.py "经济新闻 最新" --full=3
+# 搜索 + 抓前 3 条全文
+python scripts/web_search.py "中国大型邮轮 花城号 出坞" --full=3
 
-# 使用 auto 模式（Bing 结果不足时切换 DuckDuckGo）
+# auto 模式：Bing 结果不足时切换 DuckDuckGo
 python scripts/web_search.py "技术教程" --engine=auto
 
-# 过滤知乎等低质量域名
-python scripts/web_search.py "某个话题" --filter
+# 过滤知乎/百度知道等低质量域名
+python scripts/web_search.py "某话题" --filter
+
+# 禁用 query 改写（调试用）
+python scripts/web_search.py "今日金价" --no-rewrite
 ```
 
----
+## 搜索 Query 优化建议
+
+搜索效果取决于 Query 是否合理：
+
+1. **简洁精准**：2-5 个核心词组合，避免长句、反问句
+2. **限定明确**：需要时效性/地区内容时加上对应限定词
+3. **格式正确**：中文关键词 + 数字/英文限定词
+
+| 场景 | 推荐 | 不推荐 |
+|---|---|---|
+| 时效新闻 | `2026年04月 美伊局势` | `最近美伊之间发生了什么` |
+| 技术教程 | `Python 异步编程 2026` | `我想学 Python 异步编程` |
+| 本地内容 | `广东东莞 今日天气` | `东莞今天天气怎么样啊` |
+| 官方信息 | `华为云 ModelArts 文档` | `华为云那个 ModelArts 怎么看` |
+
+## 参数说明
+
+| 参数 | 类型 | 默认 | 范围 | 说明 |
+|---|---|---|---|---|
+| `query` | 字符串 | — | 必填 | 搜索关键词 |
+| `--max` | 整数 | 10 | 1-20 | 最多返回条数 |
+| `--full` | 整数 | 0 | 0-5 | 抓取前 N 条全文 |
+| `--engine` | 字符串 | bing | bing/duckduckgo/auto | 搜索引擎 |
+| `--filter` | 布尔 | false | — | 过滤低质量域名 |
+| `--no-rewrite` | 布尔 | false | — | 禁用 query 改写 |
+
+## 隐私与网络说明
+
+启用此工具会产生以下出站请求，使用前请确认你的环境允许：
+
+| 目的 | 端点 | 数据 |
+|---|---|---|
+| Bing 搜索（默认引擎） | `cn.bing.com` | 你的 query 文本、IP、UA |
+| DuckDuckGo 搜索（备用） | `duckduckgo.com` | 同上 |
+| 抓取目标页（仅当 `--full > 0`） | 各搜索结果对应的站点 | 你的 IP、UA、Referer |
+
+工具本身：
+
+- 不收集 telemetry、不写日志到第三方
+- 不在运行时安装 pip 包、不修改宿主目录之外的文件
+- 浏览器 cookie 仅在当前 Playwright 上下文内使用，进程退出即销毁
+
+如果你不希望抓取目标页，把 `--full` 留在默认值 `0` 即可，工具只会访问搜索引擎。
 
 ## 常见问题
 
 ### 搜索返回空结果
-1. 检查网络连接（VPN 可能影响 Bing 国内版）
-2. 尝试 `--engine=duckduckgo` 直接用 DuckDuckGo
-3. 检查 Query 是否过于冗长或口语化
+- 检查网络（Bing 国内版偶发限流，工具已内置 3s 节流和指数退避）
+- 试 `--engine=duckduckgo`（前提是网络可达）
+- 检查 query 是否过于冗长
 
 ### 浏览器启动失败
+脚本不会自动安装。手动跑：
 ```bash
-pip install playwright && playwright install chromium
+pip install playwright
+playwright install chromium
 ```
 
 ### 全文抓取失败
-- 某些网站有强反爬限制
-- 知乎等域名在全文抓取时自动跳过
+- 部分站点 JS 渲染较重或返回非 HTML，工具不会做特殊处理
+- 黑名单/低质量域名（百度知道、知乎等）在 `--filter` 启用时跳过
 
-### 结果集中在单一域名
-- 脚本会自动检测并警告 `[WARN] 结果集中在单一域名`
-- **解决方案**：换用更具体的关键词，避免歧义词
+### 单域名集中
+- 工具自动检测并打印 `[WARN] 单域名集中: xxx`
+- 触发时会自动用 `-site:xxx` 排除该域名重试一次（最多 2 轮）
 
-### 搜索关键词避坑指南
-| ❌ 避免 | ✅ 推荐 |
-|---------|---------|
-| `民生新闻` | `住房 医疗 就业` 或 `社会政策 百姓生活` |
-| `经济新闻` | `财经政策 GDP` 或 `A股 沪指` |
-| `长护险` | `长期护理保险 养老服务` |
+## 已知限制
 
-### 服务器环境
-- 脚本强制使用 `headless=True`，无需显示器
-- 已添加服务器兼容的浏览器参数
+- **VPN/代理**：可能影响 Bing 国内版的可达性
+- **headless**：默认 `headless=True`，无 GUI 依赖
+- **DDG 国内不可达**：DuckDuckGo 在中国大陆需要科学上网，超时单次 10s 快速失败
+- **抓取上限**：`--full` 最多 5 条，单页正文截断到 8000 字

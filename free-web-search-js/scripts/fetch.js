@@ -11,7 +11,6 @@
  * 多 URL 并行，打不开跳过
  */
 import process from 'process';
-import child_process from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -27,10 +26,16 @@ const DEFAULT_MAX_LEN = 12000;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
 
 // ==================== 浏览器复用 ====================
+const HEARTBEAT_FILE = path.resolve(__dirname, '..', '.browser-heartbeat');
+function touchHeartbeat() {
+  try { fs.writeFileSync(HEARTBEAT_FILE, String(Date.now())); } catch {}
+}
+
 async function getBrowser() {
   try {
     const info = JSON.parse(fs.readFileSync(ENDPOINT_FILE, 'utf-8'));
     process.kill(info.pid, 0);
+    touchHeartbeat();
     const browser = await chromium.connectOverCDP(info.wsEndpoint);
     return { browser, shared: true };
   } catch {}
@@ -42,9 +47,8 @@ function releaseBrowser(browser, shared) {
   return shared ? browser.disconnect() : browser.close();
 }
 
+// 兼容性补丁：headless 下让 navigator.permissions.query('notifications') 与 Notification.permission 返回一致结果，避免页面脚本抛异常。
 const PAGE_COMPAT_INIT = () => {
-  Object.defineProperty(navigator, 'webdriver', { get: () => false });
-  window.chrome = { runtime: {} };
   const origQuery = window.navigator.permissions?.query;
   if (origQuery) {
     window.navigator.permissions.query = (params) => (
@@ -56,18 +60,25 @@ const PAGE_COMPAT_INIT = () => {
 };
 
 async function ensureDeps() {
-  try { await import('cheerio'); } catch {
-    child_process.execSync('npm install cheerio --silent', { stdio: 'inherit' });
+  const missing = [];
+  for (const m of ['cheerio', 'commander', 'iconv-lite', 'playwright']) {
+    try { await import(m); } catch { missing.push(m); }
   }
-  try { await import('commander'); } catch {
-    child_process.execSync('npm install commander --silent', { stdio: 'inherit' });
-  }
-  try { await import('iconv-lite'); } catch {
-    child_process.execSync('npm install iconv-lite --silent', { stdio: 'inherit' });
-  }
-  try { await import('playwright'); } catch {
-    console.error('[WARN] playwright 未安装，headed 兜底不可用');
-  }
+  if (missing.length === 0) return;
+
+  const skillRoot = path.resolve(__dirname, '..');
+  console.error(`\n[X] free-web-search-js 缺少依赖: ${missing.join(', ')}\n`);
+  console.error('   一键安装（推荐）:');
+  console.error(`     cd "${skillRoot}" && bash scripts/setup.sh`);
+  console.error('     # Windows: powershell -File scripts/setup.ps1\n');
+  console.error('   手动安装:');
+  console.error(`     cd "${skillRoot}" && npm install`);
+  console.error('     npx playwright install chromium\n');
+  console.error('   已有 Chrome（跳过 150MB 下载）:');
+  console.error('     export CHROMIUM_EXECUTABLE_PATH=/path/to/chrome\n');
+  console.error('   验证:');
+  console.error('     node scripts/check-env.js\n');
+  process.exit(1);
 }
 
 // ==================== 编码处理 ====================

@@ -28,13 +28,34 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 
 function clean(s) { return String(s || '').replace(/\s+/g, ' ').trim(); }
 
-// ==================== 依赖 ====================
-async function ensureDeps() {
-  try { await import('cheerio'); } catch {
-    child_process.execSync('npm install cheerio --silent', { stdio: 'inherit' });
+// ==================== 依赖检查（不自动安装）====================
+function depMissingError(missing) {
+  return [
+    `[X] free-web-search-js 缺少依赖: ${missing.join(', ')}`,
+    '',
+    '   一键安装（推荐）:',
+    `     cd "${SKILL_ROOT}" && bash scripts/setup.sh`,
+    '   Windows:',
+    `     cd "${SKILL_ROOT}"; powershell -File scripts/setup.ps1`,
+    '',
+    '   手动安装:',
+    `     cd "${SKILL_ROOT}" && npm install && npx playwright install chromium`,
+    '',
+    '   完整环境检查:',
+    `     node "${path.join(SKILL_ROOT, 'scripts', 'check-env.js')}"`,
+    '',
+    '   详细文档: 见 SKILL.md「安装」章节',
+  ].join('\n');
+}
+
+async function checkDeps() {
+  const missing = [];
+  for (const mod of ['cheerio', 'commander']) {
+    try { await import(mod); } catch { missing.push(mod); }
   }
-  try { await import('commander'); } catch {
-    child_process.execSync('npm install commander --silent', { stdio: 'inherit' });
+  if (missing.length) {
+    console.error(depMissingError(missing));
+    process.exit(2);
   }
 }
 
@@ -137,24 +158,22 @@ async function resolveRedirectUrl(url, timeout = 6000) {
 }
 
 // ==================== Playwright 浏览器管理 ====================
-const PAGE_COMPAT_INIT = () => {
-  Object.defineProperty(navigator, 'webdriver', { get: () => false });
-  window.chrome = { runtime: {} };
-  const origQuery = window.navigator.permissions?.query;
-  if (origQuery) {
-    window.navigator.permissions.query = (params) => (
-      params.name === 'notifications' ? Promise.resolve({ state: Notification.permission }) : origQuery(params)
-    );
-  }
-};
+// 使用 Playwright 默认浏览器上下文与默认 UA。
+const PAGE_COMPAT_INIT = () => {};
 
 let _browserInstance = null;
+
+const HEARTBEAT_FILE = path.resolve(SKILL_ROOT, '.browser-heartbeat');
+function touchHeartbeat() {
+  try { fs.writeFileSync(HEARTBEAT_FILE, String(Date.now())); } catch {}
+}
 
 async function getBrowser() {
   if (_browserInstance) return _browserInstance;
   try {
     const info = JSON.parse(fs.readFileSync(ENDPOINT_FILE, 'utf-8'));
     process.kill(info.pid, 0);
+    touchHeartbeat();
     const browser = await chromium.connectOverCDP(info.wsEndpoint);
     _browserInstance = { browser, shared: true };
     return _browserInstance;
@@ -417,19 +436,38 @@ async function searchDDGHtml(query, max) {
 }
 
 // ==================== 自动抓取 ====================
+// 安全说明：使用 spawnSync 数组式参数 + shell:false，URL 作为独立 argv 项传递，
+// 不进 shell 解析，杜绝从搜索结果 URL 来的命令注入。
 async function autoFetchUrls(results, fetchCount, maxLen) {
   if (fetchCount <= 0 || results.length === 0) return;
-  const urls = results.slice(0, Math.min(fetchCount, results.length)).map(r => r.url);
-  console.error(`[fetch] 自动抓取 ${urls.length} 条...`);
+  // 仅放行 http/https 协议，过滤掉异常 URL
+  const safeUrls = results
+    .slice(0, Math.min(fetchCount, results.length))
+    .map(r => r.url)
+    .filter(u => /^https?:\/\//i.test(u));
+  if (safeUrls.length === 0) return;
+  console.error(`[fetch] 自动抓取 ${safeUrls.length} 条...`);
 
   try {
-    const fetchArgs = ['node', path.resolve(__dirname, 'fetch.js'), ...urls, `--max-len=${maxLen}`, '--headed'];
-    const raw = child_process.execSync(fetchArgs.join(' '), {
-      encoding: 'utf8', timeout: 60000,
+    const fetchScript = path.resolve(__dirname, 'fetch.js');
+    const args = [fetchScript, ...safeUrls, `--max-len=${maxLen}`, '--headed'];
+    const result = child_process.spawnSync(process.execPath, args, {
+      encoding: 'utf8',
+      timeout: 60000,
+      shell: false,
       stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 16 * 1024 * 1024,
     });
+    if (result.error) {
+      console.error(`[fetch] 抓取失败: ${result.error.message.split('\n')[0]}`);
+      return;
+    }
+    if (result.status !== 0) {
+      console.error(`[fetch] 抓取退出码 ${result.status}`);
+      return;
+    }
     try {
-      const fetched = JSON.parse(raw);
+      const fetched = JSON.parse(result.stdout);
       for (let i = 0; i < Math.min(fetchCount, fetched.length); i++) {
         if (fetched[i] && fetched[i].content) {
           results[i].content = fetched[i].content.slice(0, maxLen);
@@ -447,7 +485,7 @@ async function autoFetchUrls(results, fetchCount, maxLen) {
 // ==================== main ====================
 async function main() {
   const startTime = Date.now();
-  await ensureDeps();
+  await checkDeps();
   const { program } = await import('commander');
   program
     .argument('[query...]', '搜索关键词')
@@ -493,7 +531,7 @@ async function main() {
     // 国内：根据 --engine 选择
     const engine = opts.engine === 'auto' ? 'bing' : opts.engine;
     if (engine === 'sogou') {
-      console.error('[策略] 国内 → 搜狗 HTTP (⚠ 无cookie易被反爬拦截，结果可能为空)');
+      console.error('[策略] 国内 → 搜狗 HTTP（无 cookie，结果可能不稳定）');
       add(await searchSogouHttp(query, max));
     } else {
       console.error('[策略] 国内 → Bing PW');

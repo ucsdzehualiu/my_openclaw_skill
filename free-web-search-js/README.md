@@ -5,7 +5,7 @@
 free-web-search-js 是一个基于 Playwright和JS写 的免费网络搜索skill 可用于CC或者openclaw（clawhub install free-web-search-js），无需 API Key，支持国内和海外搜索，自动抓取搜索结果内容。
 
 - **免费**：零成本使用，无需 API Key
-- **稳定**：智能选择搜索策略，自动应对反爬
+- **稳定**：根据网络环境自动切换搜索策略，提高可达性
 - **快速**：首次搜索 3\~6 秒，后续复用浏览器更快
 - **自动抓取**：搜索后自动抓取 top N 条结果内容
 - **跨区域**：国内使用 Bing/搜狗，海外使用 DDG
@@ -15,7 +15,7 @@ free-web-search-js 是一个基于 Playwright和JS写 的免费网络搜索skill
 | 引擎       | 协议               | 区域 | 说明                                          |
 | -------- | ---------------- | -- | ------------------------------------------- |
 | Bing CN  | Playwright 搜索框提交 | 国内 | 先访问首页拿 cookie，再搜索框输入提交                      |
-| 搜狗       | 纯 HTTP           | 国内 | `--engine=sogou` 可选，⚠ 无 cookie 易被反爬拦截，结果不稳定 |
+| 搜狗       | 纯 HTTP           | 国内 | `--engine=sogou` 可选，无 cookie，结果不稳定 |
 | DDG HTML | 纯 HTTP           | 海外 | html.duckduckgo.com                         |
 
 ## 安装
@@ -168,7 +168,7 @@ Bing 跳转 URL（`bing.com/ck/`）自动解码为直链。
 
 - **国内首次搜索较慢**：需启动 Chromium（3\~6s），后续复用更快
 - **Bing CN 即时答案不返回**：天气、计算器等即时卡片不走 `li.b_algo`，搜索结果为 0
-- **搜狗 HTTP 不稳定**：无 cookie 纯请求易被反爬拦截，结果可能为空（`--engine=sogou` 慎用）
+- **搜狗 HTTP 不稳定**：无 cookie 纯请求结果可能为空（`--engine=sogou` 慎用）
 - **部分站点 HTTP 抓不到**：需要 JS 渲染的页面——HTTP 失败会自动 headed 重试
 - **部分站点海外不可达**：国内专属站点从海外访问可能超时
 - **代理干扰 IP 检测**：出口 IP 走代理时可能误判区域，用 `--region=cn/intl` 手动指定

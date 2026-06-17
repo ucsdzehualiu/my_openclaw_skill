@@ -68,19 +68,19 @@ run_test "Query 改写 - Python 是什么 → Python 介绍" \
   "node scripts/search.js 'Python 是什么' --max=2 --no-fetch 2>&1" \
   "是什么→介绍"
 
-# 7. 国内搜索 - Bing 返回结果
-run_test "国内搜索 - Python 教程返回结果" \
-  "node scripts/search.js 'Python 教程' --max=3 --no-fetch --region=cn 2>&1" \
+# 7. 自动检测 - 返回结果
+run_test "自动检测搜索 - Python 教程返回结果" \
+  "node scripts/search.js 'Python 教程' --max=3 --no-fetch 2>&1" \
   "条结果"
 
-# 8. 区域强制覆盖
-run_test "区域参数 - region=cn" \
-  "node scripts/search.js '测试' --max=1 --no-fetch --region=cn 2>&1" \
-  "国内"
+# 8. 自动检测日志输出
+run_test "自动检测日志 - 输出地理判定" \
+  "node scripts/search.js '测试' --max=1 --no-fetch 2>&1" \
+  "\[地理\]"
 
 # 9. 正文抓取 - 抓 1 条
-run_test "正文抓取 - 国内站点" \
-  "node scripts/search.js 'Python 教程' --max=2 --fetch=1 --region=cn 2>&1" \
+run_test "正文抓取 - 自动检测" \
+  "node scripts/search.js 'Python 教程' --max=2 --fetch=1 2>&1" \
   "fetch"
 
 # 10. --no-rewrite 参数

@@ -13,7 +13,6 @@ export const BROWSER_ARGS = [
   '--no-sandbox',
   '--disable-setuid-sandbox',
   '--disable-dev-shm-usage',
-  '--disable-blink-features=AutomationControlled',
 ];
 
 export function readDaemonInfo() {

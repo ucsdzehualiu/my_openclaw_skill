@@ -59,7 +59,7 @@ python scripts/cloud_doc_scraper.py --list
 4. 并发抓取各页面内容，输出去噪后的纯文本
 5. 支持 HTTP fallback（Playwright 抓取失败时自动用 httpx+BS4）
 6. 支持 deep_links（目录解析失败时使用预配置的页面 URL）
-7. Stealth 模式（`--stealth`）默认关闭，仅在显式启用时处理 JS 渲染兼容性问题
+7. 扩展兼容模式（`--stealth`）默认关闭，仅在显式启用时为 JS 重型站点提供额外的浏览器上下文配置
 
 ### 方式二：手动用 web_fetch 逐页抓取
 
@@ -245,4 +245,4 @@ playwright install chromium
 - 华为云 changelog 页面（wtsnew-*）部分在 .cn 域名 404，脚本自动回退 .com
 - 阿里云部分子页面可能返回空内容，脚本会尝试 HTTP fallback
 - 个别 deep_links URL 可能随文档更新而失效，需定期维护
-- Stealth 模式（`--stealth`）默认关闭，仅在用户显式启用时生效，用于处理 JS 渲染兼容性问题
+- 扩展兼容模式（`--stealth`）默认关闭，仅在用户显式启用时生效，用于为 JS 重型站点提供额外的浏览器上下文配置

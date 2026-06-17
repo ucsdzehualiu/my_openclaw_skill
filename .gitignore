@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# clawhub scan artifacts
+_scan_report/
+scan_report.zip
+
+# local test outputs
+test_*.md
+*_test.md
+oss_aliyun_aws_compare.md
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
