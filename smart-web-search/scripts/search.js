@@ -1,101 +1,28 @@
 #!/usr/bin/env node
 /**
- * smart-web-search search.js v1.0.2
+ * smart-web-search search.js v2.0.0
  *
- * 策略更新：
- * - 国内: Bing HTML (快速 HTTP) → 结果不足时获取 cookies 重试 → 失败兜底 DDG
- * - 海外: DDG HTML (HTTP) → 失败兜底 Bing
- * - Cookie warm-up: 有头浏览器获取 cookies 后立即关闭，cookies 用于 HTTP 重试
- * - Query 意图改写 + 自动抓取正文
+ * 路由策略：仅按 IP 归属判断
+ *   - IP 国内 → Bing CN（Playwright 全流程：开首页拿 cookies → 搜索框提交）
+ *   - IP 国外 → DDG（Playwright 全流程：开首页拿 cookies → 搜索框提交）
+ *   - 任一引擎为空时互相兜底
+ *
+ * 不做 query 改写，不做城市/意图识别，不做低质量域名过滤。
  */
 import process from 'process';
-import child_process from 'child_process';
 import querystring from 'querystring';
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { chromium } from 'playwright';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_ROOT = path.resolve(__dirname, '..');
 
 const DEFAULT_MAX = 10;
 const DEFAULT_FETCH = 3;
-const HTTP_TIMEOUT = 12000;
+const PW_TIMEOUT = 25000;
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
-
-const LOW_QUALITY_DOMAINS = [
-  'jingyan.baidu.com', 'zhidao.baidu.com', 'tieba.baidu.com',
-  'baike.baidu.com', 'wenku.baidu.com', 'zhihu.com', 'zhuanlan.zhihu.com',
-];
-
-// ==================== Query 意图改写 ====================
-const CITIES = '深圳|广州|北京|上海|杭州|成都|武汉|南京|重庆|西安|长沙|苏州|厦门|青岛|大连|天津|昆明|珠海|东莞|佛山|惠州|中山';
-
-const INTENT_RULES = [
-  // 城市相关
-  [new RegExp(`(${CITIES})\\s*(有什么好玩的|哪里好玩|好玩的地方|去哪玩|周末.*去哪|好去处|逛|玩什么)`),
-    (m) => `${m[1]} 景点`, '城市游玩→景点'],
-  [new RegExp(`(${CITIES})\\s*(活动|展览|演出|市集|音乐会|演唱会)`),
-    (m) => `${m[1]} ${m[2]}`, '城市活动→精简'],
-  [new RegExp(`(${CITIES})\\s*(美食|小吃|餐厅|好吃的)`),
-    (m) => `${m[1]} 美食推荐`, '城市美食→美食推荐'],
-
-  // 价格查询（去掉模糊时间词）
-  [/今日(金价|银价|油价|铜价|铂金价|汇率|股价)/,
-    (m) => m[1], '今日价格→去掉今日'],
-  [/现在(.*?)(价格|多少钱)/,
-    (m) => `${m[1]} 价格`, '现在价格→去掉现在'],
-
-  // 教程类
-  [/(.+?)(教程|入门|学习|怎么学)/,
-    (m) => `${m[1]} 教程`, '教程类→标准化'],
-  [/^怎么(做|用|玩|安装|配置|设置)(.+)/i,
-    (m) => `${m[2]} ${m[1]}法`, '怎么做→方法'],
-  [/^如何(.+)/i,
-    (m) => `${m[1]} 方法`, '如何→方法'],
-
-  // 下载类
-  [/(.+?)(下载|安装包|安装)/,
-    (m) => `${m[1]} 官方下载`, '下载→官方下载'],
-
-  // 官网查询
-  [/(.+?)(官网|官方网站|主页)/,
-    (m) => `${m[1]} 官网`, '官网查询→精简'],
-
-  // 最新资讯
-  [/(最新|最近)(.*?)(消息|新闻|动态|进展)/,
-    (m) => `${m[2]} 最新`, '最新消息→精简'],
-
-  // 知识类
-  [/(.+?)是什么(?:意思)?$/i,
-    (m) => `${m[1]} 介绍`, '是什么→介绍'],
-  [/什么是(.+)/i,
-    (m) => `${m[1]} 介绍`, '什么是→介绍'],
-
-  // 评价类
-  [/(.+?)怎么样$/i,
-    (m) => `${m[1]} 评价`, '怎么样→评价'],
-  [/(.+?)(好不好|靠谱吗|可靠吗)/i,
-    (m) => `${m[1]} 评价`, '好不好→评价'],
-
-  // 对比类
-  [/(.+?)和(.+?)(哪个好|哪个更好|选哪个|区别)/,
-    (m) => `${m[1]} ${m[2]} 对比`, '对比类→标准化'],
-  [/(.+?)(vs|VS)(.+)/,
-    (m) => `${m[1]} ${m[3]} 对比`, 'VS→对比'],
-];
-
-function rewriteQuery(query) {
-  for (const [pattern, rewrite, desc] of INTENT_RULES) {
-    const m = query.match(pattern);
-    if (m) {
-      const rewritten = rewrite(m).replace(/\s+/g, ' ').trim();
-      return { rewritten, desc };
-    }
-  }
-  return { rewritten: query, desc: null };
-}
 
 // ==================== 工具函数 ====================
 function clean(s) { return String(s || '').replace(/\s+/g, ' ').trim(); }
@@ -126,13 +53,6 @@ function normalizeUrl(raw) {
   } catch { return url; }
 }
 
-function isLowQuality(url) {
-  try {
-    const host = new URL(url).hostname;
-    return LOW_QUALITY_DOMAINS.some(d => host === d || host.endsWith('.' + d));
-  } catch { return false; }
-}
-
 function dedupKey(url) {
   try {
     const u = new URL(url);
@@ -142,7 +62,7 @@ function dedupKey(url) {
   } catch { return url.toLowerCase(); }
 }
 
-// ==================== 依赖检查（不自动安装）====================
+// ==================== 依赖检查 ====================
 async function checkDeps() {
   const missing = [];
   for (const mod of ['cheerio', 'commander', 'playwright']) {
@@ -161,11 +81,25 @@ async function checkDeps() {
   process.exit(2);
 }
 
-// ==================== 区域检测 ====================
+// ==================== IP 归属探测 ====================
 let _inChinaCache = null;
 async function detectInChina() {
   if (_inChinaCache !== null) return _inChinaCache;
   const probes = [
+    (async () => {
+      for (const url of ['https://myip.ipip.net', 'https://cip.cc']) {
+        try {
+          const r = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(3000) });
+          if (!r.ok) continue;
+          const text = await r.text();
+          if (/中国|CN/i.test(text)) {
+            const ip = text.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/)?.[1] ?? '?';
+            return { inChina: true, label: `${ip} → CN` };
+          }
+        } catch {}
+      }
+      throw new Error('cn probe failed');
+    })(),
     (async () => {
       for (const url of ['https://ipinfo.io/json', 'https://ipapi.co/json/']) {
         try {
@@ -174,14 +108,14 @@ async function detectInChina() {
           const d = await r.json();
           const cc = String(d.country || d.country_code || '').toUpperCase();
           if (!cc) continue;
-          return { inChina: cc === 'CN', label: `IP probe → ${cc}` };
+          return { inChina: cc === 'CN', label: `${d.ip ?? '?'} → ${cc}` };
         } catch {}
       }
       throw new Error('intl probe failed');
     })(),
     (async () => {
       const r = await fetch('https://cn.bing.com', { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(3000), redirect: 'manual' });
-      return { inChina: r.status === 200 || r.status === 302, label: `cn.bing.com probe → ${r.status}` };
+      return { inChina: r.status === 200 || r.status === 302, label: `cn.bing.com → ${r.status}` };
     })(),
   ];
   try {
@@ -190,193 +124,213 @@ async function detectInChina() {
     _inChinaCache = winner.inChina;
     return winner.inChina;
   } catch {
-    console.error('[地理] 检测失败（可能使用代理），默认国外（使用 DDG）');
-    _inChinaCache = false; // 改为默认 false，使用 DDG
+    console.error('[地理] 检测失败，默认国外');
+    _inChinaCache = false;
     return false;
   }
 }
 
-// ==================== Bing HTML (HTTP) ====================
-async function searchBingHtml(query, max) {
-  console.error(`[Bing:html] "${query}"`);
-  const out = [], seen = new Set();
-  try {
-    const url = 'https://cn.bing.com/search?' + querystring.stringify({ q: query });
-    const r = await fetch(url, {
-      headers: {
-        'User-Agent': UA,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'zh-CN,zh;q=0.9,en-US,en;q=0.8',
-        'Referer': 'https://cn.bing.com/',
-      },
-      signal: AbortSignal.timeout(HTTP_TIMEOUT), redirect: 'follow',
-    });
-    if (!r.ok) { console.error(`[Bing:html] HTTP ${r.status}`); return out; }
-
-    const html = await r.text();
-    const { load } = await import('cheerio');
-    const $ = load(html);
-
-    $('li.b_algo').each((_, el) => {
-      const $el = $(el);
-      const $a = $el.find('h2 a').first();
-      if (!$a.length) return;
-      const title = clean($a.text());
-      const href = $a.attr('href') || '';
-      const snippet = clean($el.find('.b_caption p, .b_caption').text());
-      const url = normalizeUrl(href);
-      if (title && url?.startsWith('http') && !seen.has(url.toLowerCase())) {
-        seen.add(url.toLowerCase());
-        out.push({ title, url, snippet });
-      }
-    });
-
-    // 备选：从答案卡片提取链接
-    if (out.length === 0) {
-      $('li.b_ans, li.b_vList, li.b_entityTP, li.b_mop').each((_, el) => {
-        $(el).find('a[href]').each((_, a) => {
-          const href = $(a).attr('href') || '';
-          if (!href || href.includes('bing.com') || href.includes('microsoft.com') || href.startsWith('javascript:')) return;
-          const title = clean($(a).text()).slice(0, 100);
-          const url = normalizeUrl(href);
-          if (title && url?.startsWith('http') && !seen.has(url.toLowerCase())) {
-            seen.add(url.toLowerCase());
-            out.push({ title, url, snippet: '' });
-          }
-        });
-      });
-    }
-
-    console.error(`[Bing:html] ${out.length} 条`);
-  } catch (e) {
-    console.error(`[Bing:html] 错误: ${e.message.split('\n')[0]}`);
+// ==================== 浏览器管理 ====================
+let _browser = null;
+async function getBrowser() {
+  if (_browser) return _browser;
+  _browser = await chromium.launch({ headless: true });
+  return _browser;
+}
+async function closeBrowser() {
+  if (_browser) {
+    try { await _browser.close(); } catch {}
+    _browser = null;
   }
-  return out.slice(0, max);
 }
 
-// ==================== Bing Cookies 获取（有头浏览器 warm-up）====================
-async function getBingCookies() {
-  console.error('[Bing:cookies] 启动有头浏览器获取 cookies...');
-  let browser;
+// ==================== Bing CN (Playwright 全流程：先访问首页拿 cookies → 搜索框提交) ====================
+async function searchBingPW(query, max) {
+  console.error(`[Bing:pw] ${query}`);
+  const out = [], seen = new Set();
+  const base = 'https://cn.bing.com';
+  let context;
   try {
-    const { chromium } = await import('playwright');
-    browser = await chromium.launch({ headless: false });
-    const ctx = await browser.newContext({
+    const browser = await getBrowser();
+    context = await browser.newContext({
       userAgent: UA,
       locale: 'zh-CN',
-      viewport: { width: 1280, height: 800 },
+      viewport: { width: 1920, height: 1080 },
+      extraHTTPHeaders: { 'Accept-Language': 'zh-CN,zh;q=0.9' },
     });
-    // 标准浏览器上下文。Bing 取不到结果时，HTTP 路径会回退到 DDG。
 
-    const page = await ctx.newPage();
-    // 访问首页建立 session 并获取 cookies
-    await page.goto('https://cn.bing.com/', { waitUntil: 'commit', timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(3000); // 等待 3 秒让页面完全加载并设置 cookies
+    const page = await context.newPage();
 
-    const cookies = await ctx.cookies();
-    console.error(`[Bing:cookies] 获取到 ${cookies.length} 个 cookies`);
+    // 1) 先访问首页建立 session 并拿 cookies
+    await page.goto(base + '/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.waitForTimeout(1500);
 
-    await browser.close();
-    return cookies;
-  } catch (e) {
-    console.error(`[Bing:cookies] 错误: ${e.message.split('\n')[0]}`);
-    if (browser) await browser.close().catch(() => {});
-    return [];
-  }
-}
+// __APPEND_MARKER_1__
+    // 2) 通过搜索框提交（携带首页 cookies）
+    try {
+      const searchBox = await page.$('#sb_form_q');
+      if (searchBox) {
+        await searchBox.click();
+        await searchBox.fill(query);
+        await page.waitForTimeout(300);
+        await Promise.all([
+          page.waitForLoadState('domcontentloaded', { timeout: PW_TIMEOUT }),
+          page.keyboard.press('Enter'),
+        ]);
+        await page.waitForTimeout(2000);
+      } else {
+        await page.goto(base + '/search?' + querystring.stringify({ q: query }), {
+          waitUntil: 'domcontentloaded', timeout: PW_TIMEOUT,
+        });
+        await page.waitForTimeout(1500);
+      }
+    } catch {
+      await page.goto(base + '/search?' + querystring.stringify({ q: query }), {
+        waitUntil: 'domcontentloaded', timeout: PW_TIMEOUT,
+      });
+      await page.waitForTimeout(1500);
+    }
 
-// ==================== Bing HTML with Cookies (HTTP + cookies) ====================
-async function searchBingWithCookies(query, max, cookies) {
-  console.error(`[Bing:cookies+http] "${query}" (使用获取的 cookies)`);
-  const out = [], seen = new Set();
-  try {
-    const cookieHeader = cookies
-      .map(c => `${c.name}=${c.value}`)
-      .join('; ');
-
-    const url = 'https://cn.bing.com/search?' + querystring.stringify({ q: query });
-    const r = await fetch(url, {
-      headers: {
-        'User-Agent': UA,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'zh-CN,zh;q=0.9,en-US,en;q=0.8',
-        'Referer': 'https://cn.bing.com/',
-        'Cookie': cookieHeader,
-      },
-      signal: AbortSignal.timeout(HTTP_TIMEOUT), redirect: 'follow',
+    const results = await page.evaluate(() => {
+      const items = [];
+      const seen = new Set();
+      const add = (title, url, snippet) => {
+        if (title && url && url.startsWith('http') && !seen.has(url)) {
+          seen.add(url);
+          items.push({ title, url, snippet });
+        }
+      };
+      document.querySelectorAll('li.b_algo').forEach(el => {
+        const a = el.querySelector('h2 a');
+        if (!a) return;
+        add(a.textContent.trim(), a.href, el.querySelector('.b_caption p')?.textContent?.trim() || '');
+      });
+      if (items.length === 0) {
+        document.querySelectorAll('li.b_ans, li.b_vList, li.b_entityTP, li.b_mop').forEach(el => {
+          el.querySelectorAll('a[href]').forEach(a => {
+            const href = a.href;
+            if (!href || href.includes('bing.com') || href.includes('microsoft.com') || href.startsWith('javascript:')) return;
+            add(a.textContent.trim().slice(0, 120), href, '');
+          });
+        });
+      }
+      return items;
     });
-    if (!r.ok) { console.error(`[Bing:cookies+http] HTTP ${r.status}`); return out; }
+// __APPEND_MARKER_2__
 
-    const html = await r.text();
-    const { load } = await import('cheerio');
-    const $ = load(html);
-
-    $('li.b_algo').each((_, el) => {
-      const $el = $(el);
-      const $a = $el.find('h2 a').first();
-      if (!$a.length) return;
-      const title = clean($a.text());
-      const href = $a.attr('href') || '';
-      const snippet = clean($el.find('.b_caption p, .b_caption').text());
-      const url = normalizeUrl(href);
+    for (const item of results) {
+      const url = normalizeUrl(item.url);
+      const title = clean(item.title);
+      const snippet = clean(item.snippet);
       if (title && url?.startsWith('http') && !seen.has(url.toLowerCase())) {
         seen.add(url.toLowerCase());
         out.push({ title, url, snippet });
       }
-    });
-
-    console.error(`[Bing:cookies+http] ${out.length} 条`);
+    }
+    console.error(`[Bing:pw] ${out.length} 条`);
   } catch (e) {
-    console.error(`[Bing:cookies+http] 错误: ${e.message.split('\n')[0]}`);
+    console.error(`[Bing:pw] 错误: ${e.message.split('\n')[0]}`);
+  } finally {
+    if (context) await context.close().catch(() => {});
   }
   return out.slice(0, max);
 }
 
-// ==================== DDG HTML (HTTP) ====================
-async function searchDDGHtml(query, max) {
-  console.error(`[DDG:html] "${query}"`);
+// ==================== DDG (Playwright 全流程：先访问首页拿 cookies → 搜索框提交) ====================
+async function searchDDGPW(query, max) {
+  console.error(`[DDG:pw] ${query}`);
   const out = [], seen = new Set();
+  const base = 'https://duckduckgo.com';
+  let context;
   try {
-    const url = 'https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query);
-    const r = await fetch(url, {
-      headers: {
-        'User-Agent': UA,
-        'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      signal: AbortSignal.timeout(HTTP_TIMEOUT), redirect: 'follow',
+    const browser = await getBrowser();
+    context = await browser.newContext({
+      userAgent: UA,
+      locale: 'en-US',
+      viewport: { width: 1920, height: 1080 },
+      extraHTTPHeaders: { 'Accept-Language': 'en-US,en;q=0.9' },
     });
-    if (!r.ok) { console.error(`[DDG:html] HTTP ${r.status}`); return out; }
 
-    const html = await r.text();
-    const { load } = await import('cheerio');
-    const $ = load(html);
+    const page = await context.newPage();
 
-    $('.result, .web-result').each((_, el) => {
-      const $el = $(el);
-      const $a = $el.find('.result__title a, .result__a, h2 a').first();
-      if (!$a.length) return;
-      const title = clean($a.text());
-      let href = $a.attr('href') || '';
-      try {
-        const uddg = new URL(href, 'https://duckduckgo.com').searchParams.get('uddg');
-        if (uddg) href = uddg;
-      } catch {}
-      const url = normalizeUrl(href);
-      const snippet = clean($el.find('.result__snippet, .result__body').text());
+    // 1) 先访问首页建立 session 并拿 cookies
+    await page.goto(base + '/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.waitForTimeout(1500);
+// __APPEND_MARKER_3__
+
+    // 2) 搜索框提交（携带首页 cookies）
+    try {
+      const searchBox = await page.$('input[name="q"]');
+      if (searchBox) {
+        await searchBox.click();
+        await searchBox.fill(query);
+        await page.waitForTimeout(300);
+        await Promise.all([
+          page.waitForLoadState('domcontentloaded', { timeout: PW_TIMEOUT }),
+          page.keyboard.press('Enter'),
+        ]);
+        await page.waitForTimeout(2500);
+      } else {
+        await page.goto(base + '/?q=' + encodeURIComponent(query), {
+          waitUntil: 'domcontentloaded', timeout: PW_TIMEOUT,
+        });
+        await page.waitForTimeout(2000);
+      }
+    } catch {
+      await page.goto(base + '/?q=' + encodeURIComponent(query), {
+        waitUntil: 'domcontentloaded', timeout: PW_TIMEOUT,
+      });
+      await page.waitForTimeout(2000);
+    }
+
+    const results = await page.evaluate(() => {
+      const items = [];
+      const seen = new Set();
+      const add = (title, url, snippet) => {
+        if (title && url && url.startsWith('http') && !seen.has(url)) {
+          seen.add(url);
+          items.push({ title, url, snippet });
+        }
+      };
+      const selectors = [
+        'article[data-testid="result"]',
+        'li[data-layout="organic"]',
+        '.result',
+        '.web-result',
+      ];
+      for (const sel of selectors) {
+        document.querySelectorAll(sel).forEach(el => {
+          const a = el.querySelector('a[href^="http"]');
+          const t = el.querySelector('h2, [data-testid="result-title-a"], .result__a, .result__title');
+          const s = el.querySelector('[data-testid="result-snippet"], .result__snippet, .result__body');
+          if (a && t) add((t.innerText || t.textContent || '').trim(), a.href, s ? (s.innerText || s.textContent || '').trim() : '');
+        });
+        if (items.length > 0) break;
+      }
+      return items;
+    });
+// __APPEND_MARKER_4__
+
+    for (const item of results) {
+      const url = normalizeUrl(item.url);
+      const title = clean(item.title);
+      const snippet = clean(item.snippet);
       if (title && url?.startsWith('http') && !seen.has(url.toLowerCase())) {
         seen.add(url.toLowerCase());
         out.push({ title, url, snippet });
       }
-    });
-    console.error(`[DDG:html] ${out.length} 条`);
+    }
+    console.error(`[DDG:pw] ${out.length} 条`);
   } catch (e) {
-    console.error(`[DDG:html] 错误: ${e.message.split('\n')[0]}`);
+    console.error(`[DDG:pw] 错误: ${e.message.split('\n')[0]}`);
+  } finally {
+    if (context) await context.close().catch(() => {});
   }
   return out.slice(0, max);
 }
 
 // ==================== 自动抓取正文 ====================
+// 直接 import 同语言 fetch.js 函数，不再 spawn 子进程。
 async function autoFetch(results, fetchCount, maxLen) {
   if (fetchCount <= 0 || results.length === 0) return;
   const safeUrls = results
@@ -386,32 +340,26 @@ async function autoFetch(results, fetchCount, maxLen) {
   if (safeUrls.length === 0) return;
   console.error(`[fetch] 抓取 ${safeUrls.length} 条正文...`);
   try {
-    const fetchScript = path.resolve(__dirname, 'fetch.js');
-    const args = [fetchScript, ...safeUrls, `--max-len=${maxLen}`];
-    const result = child_process.spawnSync(process.execPath, args, {
-      encoding: 'utf8',
-      timeout: 60000,
-      shell: false,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      maxBuffer: 16 * 1024 * 1024,
+    const { fetchUrl } = await import('./fetch.js');
+    const tasks = safeUrls.map(async (url) => {
+      try {
+        const r = await fetchUrl(url, maxLen);
+        return r && r.content ? r.content.slice(0, maxLen) : '';
+      } catch (e) {
+        console.error(`[fetch] ${url} 失败: ${e.message.split('\n')[0]}`);
+        return '';
+      }
     });
-    if (result.error) {
-      console.error(`[fetch] 抓取失败: ${result.error.message}`);
-      return;
-    }
-    if (result.status !== 0) {
-      console.error(`[fetch] 抓取退出码 ${result.status}`);
-      return;
-    }
-    const fetched = JSON.parse(result.stdout);
-    for (let i = 0; i < Math.min(fetchCount, fetched.length); i++) {
-      if (fetched[i]?.content) results[i].content = fetched[i].content.slice(0, maxLen);
+    const contents = await Promise.all(tasks);
+    for (let i = 0; i < contents.length; i++) {
+      if (contents[i]) results[i].content = contents[i];
     }
     console.error('[fetch] 完成');
   } catch (e) {
     console.error(`[fetch] 失败: ${e.message.split('\n')[0]}`);
   }
 }
+// __APPEND_MARKER_5__
 
 // ==================== main ====================
 async function main() {
@@ -424,65 +372,45 @@ async function main() {
     .option('--fetch <n>', '自动抓取前N条正文 (0=不抓)', v => parseInt(v, 10), DEFAULT_FETCH)
     .option('--max-len <n>', '单页最大字符数', v => parseInt(v, 10), 6000)
     .option('--no-fetch', '禁用正文抓取')
-    .option('--filter', '过滤低质量域名（知乎/百度经验等）')
-    .option('--no-rewrite', '跳过 Query 意图改写')
+    .option('--region <r>', '区域覆盖: auto/cn/intl（auto = IP 探测）', 'auto')
     .parse(process.argv);
 
   const opts = program.opts();
-  const rawQuery = clean(program.args.join(' '));
-  if (!rawQuery) { console.log(JSON.stringify({ error: '未传入搜索关键词' })); process.exit(1); }
-
-  // Query 改写
-  let query = rawQuery;
-  if (!opts.noRewrite) {
-    const { rewritten, desc } = rewriteQuery(rawQuery);
-    if (desc) {
-      console.error(`[改写] ${desc}: "${rawQuery}" → "${rewritten}"`);
-      query = rewritten;
-    }
-  }
+  const query = clean(program.args.join(' '));
+  if (!query) { console.log(JSON.stringify({ error: '未传入搜索关键词' })); process.exit(1); }
 
   const max = Math.max(1, Math.min(30, opts.max));
   const fetchCount = opts.noFetch ? 0 : (typeof opts.fetch === 'number' ? opts.fetch : DEFAULT_FETCH);
   const maxLen = opts.maxLen || 6000;
 
-  // 自动检测区域（不再使用 --region 参数）
-  const inChina = await detectInChina();
+  // 仅按 IP 归属判断（--region 仅为代理用户的手动覆盖）
+  let inChina;
+  if (opts.region === 'cn') inChina = true;
+  else if (opts.region === 'intl') inChina = false;
+  else inChina = await detectInChina();
 
   const out = [], seen = new Set();
   const add = (items) => {
     for (const item of items) {
-      if (opts.filter && isLowQuality(item.url)) continue;
       const key = dedupKey(item.url);
       if (!seen.has(key)) { seen.add(key); out.push(item); }
     }
   };
+// __APPEND_MARKER_6__
 
   if (inChina) {
-    console.error('[策略] 国内 → Bing HTML (快速)');
-    add(await searchBingHtml(query, max));
-
-    // 如果结果 < 3 条，可能质量不佳，用 cookies 重试
-    if (out.length < 3) {
-      console.error(`[策略] 结果不足 (${out.length} 条)，获取 cookies 后重试`);
-      const cookies = await getBingCookies();
-      if (cookies.length > 0) {
-        out.length = 0; seen.clear();
-        add(await searchBingWithCookies(query, max, cookies));
-      }
-
-      // 如果还是为空，兜底 DDG
-      if (out.length === 0) {
-        console.error('[策略] cookies 重试仍为空，兜底 → DDG HTML');
-        add(await searchDDGHtml(query, max));
-      }
+    console.error('[策略] IP 国内 → Bing CN');
+    add(await searchBingPW(query, max));
+    if (out.length === 0) {
+      console.error('[策略] Bing 为空，兜底 → DDG');
+      add(await searchDDGPW(query, max));
     }
   } else {
-    console.error('[策略] 海外 → DDG HTML');
-    add(await searchDDGHtml(query, max));
+    console.error('[策略] IP 国外 → DDG');
+    add(await searchDDGPW(query, max));
     if (out.length === 0) {
-      console.error('[策略] DDG 为空，兜底 → Bing HTML');
-      add(await searchBingHtml(query, max));
+      console.error('[策略] DDG 为空，兜底 → Bing CN');
+      add(await searchBingPW(query, max));
     }
   }
 
@@ -491,6 +419,10 @@ async function main() {
 
   console.log(JSON.stringify(results, null, 2));
   console.error(`[完成] ${((Date.now() - startTime) / 1000).toFixed(1)}s | ${results.length} 条结果`);
+  await closeBrowser();
 }
 
-main().then(() => process.exit(0)).catch(e => { console.error('[ERROR]', e.message); process.exit(1); });
+main().then(() => process.exit(0)).catch(e => {
+  console.error('[ERROR]', e.message);
+  closeBrowser().finally(() => process.exit(1));
+});

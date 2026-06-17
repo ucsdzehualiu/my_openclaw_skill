@@ -1,7 +1,7 @@
 ---
 name: free-web-search-js
 description: Web search & content fetching via Playwright + HTTP — zero API keys. Searches Bing CN (domestic) or DDG (international), auto-fetches top page contents. For real-time search, fact-checking, news, tutorials, documentation lookup.
-version: 28.1.1
+version: 29.0.0
 trigger_keywords:
   - search
   - find

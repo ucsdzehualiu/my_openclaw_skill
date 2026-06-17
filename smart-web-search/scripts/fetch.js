@@ -11,7 +11,6 @@
  * 多 URL 并行，打不开跳过
  */
 import process from 'process';
-import child_process from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -339,7 +338,7 @@ async function fetchHeaded(url, maxLen) {
 }
 
 // ==================== 单 URL：两层兜底 ====================
-async function fetchUrl(url, maxLen) {
+export async function fetchUrl(url, maxLen) {
   // 第1层：轻量 HTTP
   let result = await fetchLightweight(url, maxLen);
   if (result.content) return { url, ...result };
@@ -387,4 +386,9 @@ async function main() {
   console.log(JSON.stringify(results, null, 2));
 }
 
-main().catch(e => { console.error('[ERROR]', e.message); process.exit(1); });
+// 仅在直接 CLI 运行时调用 main，作为模块被 import 时不自动执行
+const isMain = import.meta.url === `file://${process.argv[1]?.replace(/\\/g, '/')}` ||
+               import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/')}`;
+if (isMain) {
+  main().catch(e => { console.error('[ERROR]', e.message); process.exit(1); });
+}

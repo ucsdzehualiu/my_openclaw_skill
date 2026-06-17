@@ -1,7 +1,7 @@
 ---
 name: free-web-search
 description: 基于 Bing 国内版 / DuckDuckGo 的联网搜索工具，中文环境优化，可按需抓取目标网页正文，返回结构化结果。仅在用户明确请求联网搜索时调用。
-version: 7.1.1
+version: 8.0.0
 author: free-web-search
 license: MIT
 trigger_keywords:

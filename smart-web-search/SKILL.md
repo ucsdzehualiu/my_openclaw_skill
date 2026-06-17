@@ -1,7 +1,7 @@
 ---
 name: free-smart-web-search
 description: Smart web search with auto region detection, query intent rewriting, and dual-tier content fetching. Works in both China and international networks.
-version: 1.0.5
+version: 2.0.0
 author: smart-web-search
 trigger_keywords:
   - search

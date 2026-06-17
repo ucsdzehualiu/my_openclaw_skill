@@ -1,124 +1,39 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-free-web-search v8
-意图识别 + query改写 + 请求节流 + 结果质量评分 + 单域名排除重试
+free-web-search v9.0
 
-运行说明：
-- 不在运行时安装/修改主机依赖（不会调用 pip/playwright install）
-- 仅使用 Playwright 默认 headless 模式
-- 不通过 shell 拼接外部 URL，所有页面访问通过 Playwright API 走参数化路径
+路由策略：仅按 IP 归属判断
+  - IP 国内 → Bing CN（Playwright 全流程：开首页拿 cookies → 搜索框提交）
+  - IP 国外 → DDG（Playwright 全流程：开首页拿 cookies → 搜索框提交）
+  - 任一引擎为空时互相兜底
+
+不做 query 改写，不做城市/意图识别，不做单域名排除重试，不做低质量过滤。
 """
 
 import sys
 import json
 import time
-import re
 import argparse
 from urllib.parse import urlencode, quote, urlparse
-from datetime import datetime
 
 # ==================== 强制UTF-8 ====================
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
 # ==================== 配置 ====================
-DEFAULT_MAX  = 10
+DEFAULT_MAX = 10
 DEFAULT_FULL = 0
-TIMEOUT      = 30000
-FETCH_TIMEOUT= 15000
-DDG_TIMEOUT  = 10000
-MAX_RETRIES  = 3
-DDG_RETRIES  = 1
-WAIT_TIME    = 2000
-
-QUALITY_THRESHOLD = 0.45
-
-MIN_REQUEST_INTERVAL = 3.0
-_last_request_time = 0.0
+PW_TIMEOUT = 25000
+HOME_TIMEOUT = 15000
+FETCH_TIMEOUT = 15000
 
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/125.0.0.0 Safari/537.36"
+    "Chrome/136.0.0.0 Safari/537.36"
 )
 
-BLOCK_DOMAINS = [
-    # 知乎搜索结果保留，正文抓取尽力而为
-]
-
-LOW_QUALITY_DOMAINS = [
-    "jingyan.baidu.com",
-    "zhidao.baidu.com",
-    "tieba.baidu.com",
-    "baike.baidu.com",
-    "wenku.baidu.com",
-    "bbs.16fan.com",
-    "zhihu.com",
-    "zhuanlan.zhihu.com",
-]
-
-AUTHORITY_HINTS = [
-    ".gov.", "gov.cn", ".org.",
-    "kitco.com", "sge.com.cn", "cngold.org", "gold.org.cn",
-    "kekegold.com", "cngoldprice.com", "ip138.com",
-    "finance.sina", "finance.eastmoney", "10jqka.com.cn",
-    "jujindata.com", "huilvbiao.com", "jinjia.com.cn",
-    "mafengwo.cn", "ctrip.com", "damai.cn",
-    "visitshenzhen",
-]
-
-FUZZY_TIME_WORDS = re.compile(r'(今日|今天|最新|最近|当前|目前|当下|现在)')
-
-# ==================== 意图识别 + query 改写 ====================
-CITIES = "深圳|广州|北京|上海|杭州|成都|武汉|南京|重庆|西安|长沙|苏州|厦门|青岛|大连|天津|昆明|珠海|东莞|佛山|惠州|中山"
-
-# 意图规则: (匹配正则, 改写函数, 描述)
-# 改写函数接收 match 对象和原始 query，返回改写后的完整 query
-# 原则：只精简/替换，不加词！Bing CN对简洁query效果最好
-INTENT_RULES = [
-    # 城市+好玩/去哪 → 精简为"城市 景点"
-    (re.compile(rf'({CITIES})\s*(有什么好玩的|哪里好玩|好玩的地方|去哪玩|周末.*去哪|好去处|逛|玩什么)'),
-     lambda m, q: f'{m.group(1)} 景点', '城市游玩→景点'),
-
-    # 城市+活动 → 精简
-    (re.compile(rf'({CITIES})\s*(活动|展览|演出|市集|音乐会|演唱会)'),
-     lambda m, q: f'{m.group(1)} {m.group(2)}', '城市活动→精简'),
-
-    # "今日金价" → "金价"（Bing CN对"今日"匹配百度经验，去掉更好）
-    (re.compile(r'今日(金价|银价|油价|铜价|铂金价)'),
-     lambda m, q: f'{m.group(1)}', '今日价格→去掉今日'),
-
-    # "xxx是什么" → "xxx 介绍"
-    (re.compile(r'(.+?)是什么(?:意思)?$', re.IGNORECASE),
-     lambda m, q: f'{m.group(1)} 介绍', '是什么→介绍'),
-
-    # "xxx怎么样" → "xxx 评价"
-    (re.compile(r'(.+?)怎么样$', re.IGNORECASE),
-     lambda m, q: f'{m.group(1)} 评价', '怎么样→评价'),
-
-    # "怎么xxx" → "xxx 方法"
-    (re.compile(r'^怎么(.+)', re.IGNORECASE),
-     lambda m, q: f'{m.group(1)} 方法', '怎么→方法'),
-
-    # "xxx和yyy哪个好" → "xxx yyy 对比"
-    (re.compile(r'(.+?)和(.+?)(哪个好|哪个更好|选哪个)'),
-     lambda m, q: f'{m.group(1)} {m.group(2)} 对比', '哪个好→对比'),
-]
-
-
-def rewrite_query(query: str) -> tuple:
-    """意图识别 + query改写。只应用第一个匹配的规则。返回 (改写后query, 意图描述或None)"""
-    for pattern, rewrite_fn, desc in INTENT_RULES:
-        m = pattern.search(query)
-        if m:
-            rewritten = rewrite_fn(m, query)
-            rewritten = re.sub(r'\s+', ' ', rewritten).strip()
-            return rewritten, desc
-    return query, None
-
-
-# 浏览器启动参数（用于 Linux/容器环境的稳定性）
 BROWSER_ARGS = [
     '--no-sandbox',
     '--disable-gpu',
@@ -132,20 +47,20 @@ _playwright = None
 
 
 def check_playwright():
-    """Check if playwright is installed. Exit with helpful message if not."""
+    """检查 playwright 是否安装。未安装时给出安装提示并退出。"""
     try:
-        import playwright
+        import playwright  # noqa: F401
         return
     except ImportError:
         import os
         skill_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         print("\n[X] free-web-search 缺少依赖: playwright\n", file=sys.stderr)
         print("   一键安装（推荐）:", file=sys.stderr)
-        print(f"     cd \"{skill_root}\" && bash scripts/setup.sh", file=sys.stderr)
+        print(f'     cd "{skill_root}" && bash scripts/setup.sh', file=sys.stderr)
         print("   Windows:", file=sys.stderr)
-        print(f"     cd \"{skill_root}\"; powershell -File scripts/setup.ps1\n", file=sys.stderr)
+        print(f'     cd "{skill_root}"; powershell -File scripts/setup.ps1\n', file=sys.stderr)
         print("   手动安装:", file=sys.stderr)
-        print(f"     cd \"{skill_root}\"", file=sys.stderr)
+        print(f'     cd "{skill_root}"', file=sys.stderr)
         print("     pip install playwright", file=sys.stderr)
         print("     playwright install chromium\n", file=sys.stderr)
         print("   详细文档: 见 SKILL.md「安装」章节\n", file=sys.stderr)
@@ -157,285 +72,320 @@ def parse_args():
     parser.add_argument("query", nargs="*")
     parser.add_argument("--max", type=int, default=DEFAULT_MAX, dest="max_results")
     parser.add_argument("--full", type=int, default=DEFAULT_FULL)
-    parser.add_argument("--engine", type=str, default="bing", choices=["bing", "duckduckgo", "auto"])
-    parser.add_argument("--filter", action="store_true", help="过滤低质量域名")
-    parser.add_argument("--no-rewrite", action="store_true", help="禁用query改写")
+    parser.add_argument("--region", default="auto", choices=["auto", "cn", "intl"],
+                        help="区域覆盖（auto = IP 探测）")
     args = parser.parse_args()
     query = " ".join(args.query).strip()
     args.max_results = max(1, min(20, args.max_results))
     args.full = max(0, min(5, args.full))
-    return query, args.max_results, args.full, args.engine, args.filter, args.no_rewrite
-
-
-def build_bing_url(query, count):
-    return "https://cn.bing.com/search?" + urlencode({
-        "q": query, "mkt": "zh-CN", "setlang": "zh-CN", "cc": "CN", "count": str(count + 2)
-    })
-
-def build_duckduckgo_url(query):
-    return "https://duckduckgo.com/?q=" + quote(query) + "&ia=web"
+    return query, args.max_results, args.full, args.region
 
 
 def init_browser():
     global _browser, _playwright
-    if _browser: return
+    if _browser:
+        return
     from playwright.sync_api import sync_playwright
     print("[DEBUG] 启动 Chromium...", file=sys.stderr)
     _playwright = sync_playwright().start()
     _browser = _playwright.chromium.launch(headless=True, args=BROWSER_ARGS)
     print("[DEBUG] Chromium 已就绪", file=sys.stderr)
 
+
 def close_browser():
+    global _browser, _playwright
     try:
-        if _browser: _browser.close()
-        if _playwright: _playwright.stop()
-    except: pass
+        if _browser:
+            _browser.close()
+            _browser = None
+        if _playwright:
+            _playwright.stop()
+            _playwright = None
+    except Exception:
+        pass
 
-def create_context():
-    # 标准浏览器上下文，使用普通 UA 访问 Bing / DDG。
-    ctx = _browser.new_context(
-        locale="zh-CN", user_agent=UA,
-        viewport={"width":1920,"height":1080}, screen={"width":1920,"height":1080},
-        device_scale_factor=1, timezone_id="Asia/Shanghai",
+
+def create_context(locale="zh-CN", accept_language="zh-CN,zh;q=0.9"):
+    return _browser.new_context(
+        locale=locale, user_agent=UA,
+        viewport={"width": 1920, "height": 1080},
+        screen={"width": 1920, "height": 1080},
+        device_scale_factor=1,
+        timezone_id="Asia/Shanghai",
         has_touch=False, is_mobile=False, java_script_enabled=True,
+        extra_http_headers={"Accept-Language": accept_language},
     )
-    return ctx
 
-def throttle():
-    global _last_request_time
-    gap = MIN_REQUEST_INTERVAL - (time.time() - _last_request_time)
-    if gap > 0:
-        time.sleep(gap)
-    _last_request_time = time.time()
-
-def is_blocked_domain(url): return any(d in url for d in BLOCK_DOMAINS)
-def is_low_quality_domain(url): return any(d in url for d in LOW_QUALITY_DOMAINS)
-
-def score_result(r):
-    s = 0.5
-    url, snippet = r.get("url",""), r.get("snippet","")
-    if is_low_quality_domain(url): s -= 0.3
-    if re.search(r'\d{2,}', snippet): s += 0.15
-    if len(snippet) < 20: s -= 0.1
-    for h in AUTHORITY_HINTS:
-        if h in url: s += 0.2; break
-    return max(0.0, min(1.0, s))
-
-def score_results(results):
-    return sum(score_result(r) for r in results) / len(results) if results else 0.0
-
-def get_dominant_domain(results):
-    if not results: return (None, 0, 0)
-    domains = {}
-    for r in results:
-        d = urlparse(r["url"]).netloc.replace("www.", "")
-        domains[d] = domains.get(d, 0) + 1
-    top = max(domains, key=domains.get)
-    if domains[top] > len(results) * 0.5:
-        return (top, domains[top], len(results))
-    return (None, 0, len(results))
-
-def merge_results(primary, secondary, max_results):
-    seen, merged = set(), []
-    for r in primary + secondary:
-        if r["url"] not in seen: seen.add(r["url"]); merged.append(r)
-    return merged[:max_results]
-
-def apply_filter(results, do_filter):
-    if do_filter and results:
-        filtered = [r for r in results if not is_blocked_domain(r["url"]) and not is_low_quality_domain(r["url"])]
-        if filtered: return filtered
-        print("[WARN] --filter 过滤后为空，回退", file=sys.stderr)
-    return results
+# ==================== IP 归属探测 ====================
+_in_china_cache = None
 
 
-# ==================== Bing 搜索 ====================
-def search_bing(query, max_results, do_filter=False):
-    start = time.time()
-    url = build_bing_url(query, max_results + 5)
-    print(f"[DEBUG] Bing: {query} | max={max_results}", file=sys.stderr)
-    init_browser()
-    results = []
-    for attempt in range(MAX_RETRIES):
-        throttle()
-        ctx, page = create_context(), None
+def detect_in_china():
+    """三条并发探测，先返回的获胜。失败默认国外。"""
+    global _in_china_cache
+    if _in_china_cache is not None:
+        return _in_china_cache
+
+    import urllib.request
+    import urllib.error
+
+    def probe(url, timeout=3):
+        req = urllib.request.Request(url, headers={'User-Agent': UA})
         try:
-            page = ctx.new_page()
-            page.route(ROUTE_PATTERN, lambda r: r.abort())
-            page.goto(url, timeout=TIMEOUT, wait_until="domcontentloaded")
-            page.wait_for_timeout(WAIT_TIME)
-            raw = page.evaluate("""() => {
-                const items = [];
-                document.querySelectorAll('li.b_algo').forEach(el => {
-                    try {
-                        const a = el.querySelector('h2 a');
-                        const p = el.querySelector('.b_caption p, .b_algoSlug');
-                        if (a && a.href && a.href.startsWith('http'))
-                            items.push({title:(a.innerText||a.textContent||'').trim(), url:a.href.trim(), snippet:p?(p.innerText||p.textContent||'').trim():''});
-                    } catch(e) {}
-                });
-                return items;
-            }""")
-            for r in raw:
-                if r["title"] and r["url"] and len(r["title"]) > 3:
-                    results.append({"title":r["title"],"url":r["url"],"snippet":r["snippet"],"content":""})
-            if len(results) >= max_results: break
-            if len(raw) == 0 and attempt < MAX_RETRIES - 1:
-                w = 5 * (attempt + 1)
-                print(f"[WARN] 0结果，可能限流，等{w}s", file=sys.stderr)
-                time.sleep(w)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.read().decode('utf-8', errors='ignore'), resp.getcode()
+        except Exception:
+            return None, None
+
+    # 中国 IP 探测
+    for url in ('https://myip.ipip.net', 'https://cip.cc'):
+        text, status = probe(url)
+        if text and ('中国' in text or 'CN' in text.upper()):
+            print(f"[地理] {url} → CN → 国内", file=sys.stderr)
+            _in_china_cache = True
+            return True
+
+    # 国际 IP 探测
+    import json as _json
+    for url in ('https://ipinfo.io/json', 'https://ipapi.co/json/'):
+        text, status = probe(url)
+        if text:
+            try:
+                d = _json.loads(text)
+                cc = str(d.get('country') or d.get('country_code') or '').upper()
+                if cc:
+                    print(f"[地理] {url} → {cc} → {'国内' if cc == 'CN' else '国外'}",
+                          file=sys.stderr)
+                    _in_china_cache = (cc == 'CN')
+                    return _in_china_cache
+            except Exception:
+                pass
+
+    # cn.bing.com 可达性
+    _, status = probe('https://cn.bing.com')
+    if status in (200, 301, 302):
+        print(f"[地理] cn.bing.com → {status} → 国内", file=sys.stderr)
+        _in_china_cache = True
+        return True
+
+    print("[地理] 检测失败，默认国外", file=sys.stderr)
+    _in_china_cache = False
+    return False
+
+# ==================== Bing CN（Playwright 全流程：先访问首页拿 cookies → 搜索框提交） ====================
+def search_bing(query, max_results):
+    print(f"[Bing:pw] {query} | max={max_results}", file=sys.stderr)
+    init_browser()
+    out = []
+    seen = set()
+    ctx = create_context(locale="zh-CN", accept_language="zh-CN,zh;q=0.9")
+    try:
+        page = ctx.new_page()
+        page.route(ROUTE_PATTERN, lambda r: r.abort())
+
+        # 1) 先访问首页建立 session，拿 cookies
+        try:
+            page.goto("https://cn.bing.com/", timeout=HOME_TIMEOUT,
+                      wait_until="domcontentloaded")
+            page.wait_for_timeout(1500)
         except Exception as e:
-            print(f"[WARN] Bing尝试{attempt+1}失败: {e}", file=sys.stderr)
-        finally:
-            try: ctx.close()
-            except: pass
-    results = apply_filter(results, do_filter)[:max_results]
-    dom, dc, tot = get_dominant_domain(results)
-    if dom: print(f"[WARN] 单域名集中: {dom} ({dc}/{tot})", file=sys.stderr)
-    q = score_results(results)
-    print(f"[DEBUG] 质量: {q:.2f} | 数量: {len(results)} | 耗时: {time.time()-start:.1f}s", file=sys.stderr)
-    return results, dom
+            print(f"[Bing:pw] 首页加载警告: {e}", file=sys.stderr)
 
-
-# ==================== DuckDuckGo ====================
-def search_duckduckgo(query, max_results, do_filter=False):
-    start = time.time()
-    url = build_duckduckgo_url(query)
-    print(f"[DEBUG] DDG: {query}", file=sys.stderr)
-    init_browser()
-    results = []
-    for _ in range(DDG_RETRIES):
-        ctx, page = create_context(), None
+        # 2) 通过搜索框提交（携带首页 cookies）
         try:
-            page = ctx.new_page()
-            page.route(ROUTE_PATTERN, lambda r: r.abort())
-            page.goto(url, timeout=DDG_TIMEOUT, wait_until="domcontentloaded")
-            page.wait_for_timeout(WAIT_TIME + 1000)
-            raw = page.evaluate("""() => {
-                const items = [];
-                for (const sel of ['article[data-testid="result"]','.result','[data-testid="result"]','li[data-layout="organic"]']) {
-                    document.querySelectorAll(sel).forEach(el => {
-                        try {
-                            const a=el.querySelector('a[href^="http"]'),t=el.querySelector('h2,.result__a,[data-testid="result-title"] span'),s=el.querySelector('[data-testid="result-snippet"],.result__snippet');
-                            if(a&&a.href&&t) items.push({title:(t.innerText||t.textContent||'').trim(),url:a.href.trim(),snippet:s?(s.innerText||'').trim():''});
-                        } catch(e) {}
-                    });
-                    if(items.length>0) break;
+            search_box = page.query_selector("#sb_form_q")
+            if search_box:
+                search_box.click()
+                search_box.fill(query)
+                page.wait_for_timeout(300)
+                page.keyboard.press("Enter")
+                page.wait_for_load_state("domcontentloaded", timeout=PW_TIMEOUT)
+                page.wait_for_timeout(2000)
+            else:
+                page.goto("https://cn.bing.com/search?" + urlencode({"q": query}),
+                          timeout=PW_TIMEOUT, wait_until="domcontentloaded")
+                page.wait_for_timeout(1500)
+        except Exception:
+            page.goto("https://cn.bing.com/search?" + urlencode({"q": query}),
+                      timeout=PW_TIMEOUT, wait_until="domcontentloaded")
+            page.wait_for_timeout(1500)
+
+        raw = page.evaluate("""() => {
+            const items = [];
+            document.querySelectorAll('li.b_algo').forEach(el => {
+                try {
+                    const a = el.querySelector('h2 a');
+                    const p = el.querySelector('.b_caption p, .b_algoSlug');
+                    if (a && a.href && a.href.startsWith('http')) {
+                        items.push({
+                            title: (a.innerText || a.textContent || '').trim(),
+                            url: a.href.trim(),
+                            snippet: p ? (p.innerText || p.textContent || '').trim() : ''
+                        });
+                    }
+                } catch(e) {}
+            });
+            return items;
+        }""")
+
+        for r in raw:
+            url = r["url"]
+            if r["title"] and url and url not in seen and len(r["title"]) > 3:
+                seen.add(url)
+                out.append({"title": r["title"], "url": url,
+                            "snippet": r["snippet"], "content": ""})
+        print(f"[Bing:pw] {len(out)} 条", file=sys.stderr)
+    except Exception as e:
+        print(f"[Bing:pw] 错误: {e}", file=sys.stderr)
+    finally:
+        try: ctx.close()
+        except Exception: pass
+    return out[:max_results]
+
+
+# ==================== DDG（Playwright 全流程：先访问首页拿 cookies → 搜索框提交） ====================
+def search_duckduckgo(query, max_results):
+    print(f"[DDG:pw] {query}", file=sys.stderr)
+    init_browser()
+    out = []
+    seen = set()
+    ctx = create_context(locale="en-US", accept_language="en-US,en;q=0.9")
+    try:
+        page = ctx.new_page()
+        page.route(ROUTE_PATTERN, lambda r: r.abort())
+
+        # 1) 先访问首页建立 session
+        try:
+            page.goto("https://duckduckgo.com/", timeout=HOME_TIMEOUT,
+                      wait_until="domcontentloaded")
+            page.wait_for_timeout(1500)
+        except Exception as e:
+            print(f"[DDG:pw] 首页加载警告: {e}", file=sys.stderr)
+
+        # 2) 搜索框提交
+        try:
+            search_box = page.query_selector('input[name="q"]')
+            if search_box:
+                search_box.click()
+                search_box.fill(query)
+                page.wait_for_timeout(300)
+                page.keyboard.press("Enter")
+                page.wait_for_load_state("domcontentloaded", timeout=PW_TIMEOUT)
+                page.wait_for_timeout(2500)
+            else:
+                page.goto("https://duckduckgo.com/?q=" + quote(query),
+                          timeout=PW_TIMEOUT, wait_until="domcontentloaded")
+                page.wait_for_timeout(2000)
+        except Exception:
+            page.goto("https://duckduckgo.com/?q=" + quote(query),
+                      timeout=PW_TIMEOUT, wait_until="domcontentloaded")
+            page.wait_for_timeout(2000)
+
+        raw = page.evaluate("""() => {
+            const items = [];
+            const seen = new Set();
+            const add = (title, url, snippet) => {
+                if (title && url && url.startsWith('http') && !seen.has(url)) {
+                    seen.add(url);
+                    items.push({title, url, snippet});
                 }
-                return items;
-            }""")
-            for r in raw:
-                if r["title"] and r["url"] and len(r["title"]) > 3:
-                    results.append({"title":r["title"],"url":r["url"],"snippet":r["snippet"],"content":""})
-            if len(results) >= max_results: break
-        except Exception as e:
-            print(f"[WARN] DDG失败: {e}", file=sys.stderr)
-        finally:
-            try: ctx.close()
-            except: pass
-    results = apply_filter(results, do_filter)[:max_results]
-    print(f"[DEBUG] DDG: {len(results)}条 | {time.time()-start:.1f}s", file=sys.stderr)
-    return results, None
+            };
+            const sels = [
+                'article[data-testid="result"]',
+                'li[data-layout="organic"]',
+                '.result',
+                '.web-result',
+            ];
+            for (const sel of sels) {
+                document.querySelectorAll(sel).forEach(el => {
+                    const a = el.querySelector('a[href^="http"]');
+                    const t = el.querySelector('h2, [data-testid="result-title-a"], .result__a, .result__title');
+                    const s = el.querySelector('[data-testid="result-snippet"], .result__snippet, .result__body');
+                    if (a && t) add((t.innerText || t.textContent || '').trim(), a.href,
+                                    s ? (s.innerText || s.textContent || '').trim() : '');
+                });
+                if (items.length > 0) break;
+            }
+            return items;
+        }""")
+
+        for r in raw:
+            url = r["url"]
+            if r["title"] and url and url not in seen and len(r["title"]) > 3:
+                seen.add(url)
+                out.append({"title": r["title"], "url": url,
+                            "snippet": r["snippet"], "content": ""})
+        print(f"[DDG:pw] {len(out)} 条", file=sys.stderr)
+    except Exception as e:
+        print(f"[DDG:pw] 错误: {e}", file=sys.stderr)
+    finally:
+        try: ctx.close()
+        except Exception: pass
+    return out[:max_results]
 
 
 # ==================== 全文抓取 ====================
 def fetch_full(url):
     start = time.time()
-    print(f"[DEBUG] 抓全文: {url}", file=sys.stderr)
-    if is_blocked_domain(url): return "黑名单域名，跳过"
-    ctx, page = create_context(), None
+    print(f"[fetch] {url}", file=sys.stderr)
+    init_browser()
     text = ""
+    ctx = create_context()
     try:
         page = ctx.new_page()
         page.route(ROUTE_PATTERN, lambda r: r.abort())
         page.goto(url, timeout=FETCH_TIMEOUT, wait_until="domcontentloaded")
         page.wait_for_timeout(800)
-        try: page.wait_for_load_state("networkidle", timeout=5000)
-        except: pass
+        try:
+            page.wait_for_load_state("networkidle", timeout=5000)
+        except Exception:
+            pass
         text = page.evaluate("""() => {
             document.querySelectorAll('script,style,nav,header,footer,.ad,.ads,[class*="banner"],[id*="banner"],.sidebar,.comment,.popup,.modal,.cookie').forEach(e=>e.remove());
             for (const sel of ['article','main','.content','.post','.article','#content','#main','.entry-content','.post-content','[itemprop="articleBody"]']) {
-                const m=document.querySelector(sel); if(m&&m.innerText.length>200) return m.innerText;
+                const m = document.querySelector(sel);
+                if (m && m.innerText.length > 200) return m.innerText;
             }
-            return document.body?document.body.innerText:'';
+            return document.body ? document.body.innerText : '';
         }""")
     except Exception as e:
-        print(f"[ERROR] 全文失败: {e}", file=sys.stderr)
+        print(f"[fetch] 失败: {e}", file=sys.stderr)
     finally:
         try: ctx.close()
-        except: pass
+        except Exception: pass
     result = (text or "").strip()[:8000]
-    print(f"[DEBUG] 全文: {len(result)}字 | {time.time()-start:.1f}s", file=sys.stderr)
+    print(f"[fetch] {len(result)}字 | {time.time() - start:.1f}s", file=sys.stderr)
     return result or "抓取失败"
 
 
 # ==================== 主函数 ====================
 def main():
     check_playwright()
-    query, max_results, full, engine, do_filter, no_rewrite = parse_args()
+    query, max_results, full, region = parse_args()
     if not query:
-        print(json.dumps({"error": "no query"}, ensure_ascii=False)); sys.exit(1)
+        print(json.dumps({"error": "no query"}, ensure_ascii=False))
+        sys.exit(1)
 
-    # 意图识别 + query改写(仅在搜索质量差时触发,不提前改写)
-    original_query = query
-
-    results = []
-
-    if engine == "duckduckgo":
-        results, _ = search_duckduckgo(query, max_results, do_filter)
-
+    # 仅按 IP 归属判断（--region 仅为代理用户的手动覆盖）
+    if region == "cn":
+        in_china = True
+    elif region == "intl":
+        in_china = False
     else:
-        # 第1步: 用原始 query 搜索
-        results, dominant = search_bing(query, max_results, do_filter)
-        quality = score_results(results)
+        in_china = detect_in_china()
 
-        # 第2步: 单域名集中/低质量域名 → 排除重试(最多2轮,限流时停止)
-        if len(results) > 0:
-            excluded = set()
-            for _ in range(2):
-                target = None
-                if dominant and dominant not in excluded:
-                    target = dominant
-                elif results and is_low_quality_domain(results[0]["url"]):
-                    d = urlparse(results[0]["url"]).netloc.replace("www.", "")
-                    if d not in excluded: target = d
-                if not target: break
-                excluded.add(target)
-                rq = query + " " + " ".join(f"-site:{d}" for d in excluded)
-                print(f"[INFO] 排除({target})重试", file=sys.stderr)
-                rr, _ = search_bing(rq, max_results, do_filter)
-                if not rr: break
-                rq_score = score_results(rr)
-                if rq_score > quality:
-                    results = merge_results(rr, results, max_results)
-                    quality = score_results(results)
-                    dominant, _, _ = get_dominant_domain(results)
-                else: break
-
-        # 第3步: 质量差 → 尝试改写 query 重试(仅当启用改写且原始query未改写时)
-        if not no_rewrite and quality < QUALITY_THRESHOLD and len(results) > 0:
-            rewritten, intent = rewrite_query(query)
-            if intent and rewritten != query:
-                print(f"[INFO] 质量低({quality:.2f})，意图改写({intent}): {query} → {rewritten}", file=sys.stderr)
-                rr, _ = search_bing(rewritten, max_results, do_filter)
-                if rr and score_results(rr) > quality:
-                    results = rr
-                    quality = score_results(results)
-
-        # 第4步: auto模式 - 质量仍差 → 简化query(去模糊时间词)
-        if engine == "auto" and quality < QUALITY_THRESHOLD and len(results) > 0:
-            simplified = re.sub(FUZZY_TIME_WORDS, '', query).strip()
-            simplified = re.sub(r'\s+', ' ', simplified).strip()
-            if simplified != query and len(simplified) >= 2:
-                print(f"[INFO] 简化重试: {simplified}", file=sys.stderr)
-                rr, _ = search_bing(simplified, max_results, do_filter)
-                if rr and score_results(rr) > quality:
-                    results = rr
-
-        # 第5步: auto模式 - Bing完全无结果 → DDG兜底
-        if engine == "auto" and not results:
-            print("[INFO] Bing无结果，DDG兜底...", file=sys.stderr)
-            results, _ = search_duckduckgo(query, max_results, do_filter)
+    if in_china:
+        print("[策略] IP 国内 → Bing CN", file=sys.stderr)
+        results = search_bing(query, max_results)
+        if not results:
+            print("[策略] Bing 为空，兜底 → DDG", file=sys.stderr)
+            results = search_duckduckgo(query, max_results)
+    else:
+        print("[策略] IP 国外 → DDG", file=sys.stderr)
+        results = search_duckduckgo(query, max_results)
+        if not results:
+            print("[策略] DDG 为空，兜底 → Bing CN", file=sys.stderr)
+            results = search_bing(query, max_results)
 
     # 全文抓取
     if full > 0 and results:
@@ -446,5 +396,7 @@ def main():
 
 
 if __name__ == "__main__":
-    try: main()
-    finally: close_browser()
+    try:
+        main()
+    finally:
+        close_browser()

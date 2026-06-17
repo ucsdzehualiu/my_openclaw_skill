@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 /**
- * free-web-search-js search.js v28.0
+ * free-web-search-js search.js v29.0
  *
- * 国内: Bing CN (Playwright 搜索框提交)
- * 海外: DDG HTML (纯 HTTP)
- * 搜完自动抓取 top N 结果内容
+ * 路由策略：仅按 IP 归属判断
+ *   - IP 国内 → Bing CN（Playwright 全流程：开首页拿 cookie → 搜索框提交）
+ *   - IP 国外 → DDG（Playwright 全流程：开首页拿 cookie → 搜索框提交）
+ *   - 引擎为空时互相兜底
+ * 不做 query 改写，不做单域名排除重试，不做低质量过滤。
  */
 import process from 'process';
-import child_process from 'child_process';
 import querystring from 'querystring';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { chromium, request as playwrightRequest } from 'playwright';
+import { chromium } from 'playwright';
 import { findBrowserExecutable, launchBrowser } from './playwright-support.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -135,26 +136,6 @@ function normalizeUrl(raw) {
     }
     return u.toString();
   } catch { return url; }
-}
-
-async function resolveRedirectUrl(url, timeout = 6000) {
-  if (!url) return url;
-  if (!/sogou\.com\/link/i.test(url)) return url;
-  try {
-    const r = await fetch(url, {
-      method: 'GET', headers: { 'User-Agent': UA },
-      redirect: 'follow', signal: AbortSignal.timeout(timeout),
-    });
-    if (r.url && r.url.startsWith('http') && !/sogou\.com\/link/i.test(r.url)) {
-      return r.url;
-    }
-    const text = await r.text();
-    const jsMatch = text.match(/window\.location\.replace\s*\(\s*["']([^"']+)["']/);
-    if (jsMatch) return jsMatch[1];
-    const metaMatch = text.match(/URL\s*=\s*['"]([^'"]+)['"]/i);
-    if (metaMatch) return metaMatch[1];
-  } catch {}
-  return url;
 }
 
 // ==================== Playwright 浏览器管理 ====================
@@ -281,45 +262,6 @@ async function searchBingPW(query, max) {
       }
     }
 
-    // 3) 0 结果时补词重试（强制出网页结果而非即时卡片）
-    if (out.length === 0) {
-      const suffixes = [' 网站', ' 详情', ' 介绍'];
-      for (const suffix of suffixes) {
-        const retryQuery = query + suffix;
-        console.error(`[Bing:pw] 0条，补词重试: "${retryQuery}"`);
-        try {
-          await page.goto(base + '/search?' + querystring.stringify({ q: retryQuery }), {
-            waitUntil: 'domcontentloaded', timeout: PW_TIMEOUT,
-          });
-          await page.waitForTimeout(1500);
-
-          const retryResults = await page.evaluate(() => {
-            const items = [];
-            document.querySelectorAll('li.b_algo').forEach(el => {
-              const a = el.querySelector('h2 a');
-              if (!a) return;
-              items.push({
-                title: a.textContent.trim(),
-                url: a.href || '',
-                snippet: el.querySelector('.b_caption p')?.textContent?.trim() || '',
-              });
-            });
-            return items;
-          });
-          for (const item of retryResults) {
-            const url = normalizeUrl(item.url);
-            const title = clean(item.title);
-            const snippet = clean(item.snippet);
-            if (title && url && url.startsWith('http') && !seen.has(url.toLowerCase())) {
-              seen.add(url.toLowerCase());
-              out.push({ title, url, snippet });
-            }
-          }
-          if (out.length > 0) break;
-        } catch {}
-      }
-    }
-
     console.error(`[Bing:pw] ${out.length} 条`);
   } catch (e) {
     console.error(`[Bing:pw] 错误: ${e.message.split('\n')[0]}`);
@@ -329,118 +271,103 @@ async function searchBingPW(query, max) {
   return out.slice(0, max);
 }
 
-async function searchSogouHttp(query, max) {
-  console.error(`[搜狗:http] ${query}`);
+// ==================== DDG (Playwright 全流程：先开首页拿 cookies → 搜索框提交) ====================
+async function searchDDGPW(query, max) {
+  console.error(`[DDG:pw] ${query}`);
   const out = [], seen = new Set();
+  const base = 'https://duckduckgo.com';
+  let context;
   try {
-    const url = 'https://www.sogou.com/web?' + querystring.stringify({ query });
-    const r = await fetch(url, {
-      headers: {
-        'User-Agent': UA,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'zh-CN,zh;q=0.9',
-      },
-      signal: AbortSignal.timeout(HTTP_TIMEOUT), redirect: 'follow',
+    const { browser } = await getBrowser();
+    context = await browser.newContext({
+      userAgent: UA,
+      locale: 'en-US',
+      viewport: { width: 1920, height: 1080 },
+      extraHTTPHeaders: { 'Accept-Language': 'en-US,en;q=0.9' },
     });
-    if (!r.ok) { console.error(`[搜狗:http] HTTP ${r.status}`); return out; }
+    await context.addInitScript(PAGE_COMPAT_INIT);
 
-    const html = await r.text();
-    const { load } = await import('cheerio');
-    const $ = load(html);
+    const page = await context.newPage();
 
-    const rawItems = [];
-    $('.vrwrap, .rb').each((_, el) => {
-      const $el = $(el);
-      const $a = $el.find('h3 a').first();
-      if (!$a.length) return;
-      const title = clean($a.text());
-      let href = $a.attr('href') || '';
-      if (href.startsWith('/link?')) href = 'https://www.sogou.com' + href;
-      const snippet = clean($el.find('.str-text-info, .str_info').text());
-      if (title && href) rawItems.push({ title, href, snippet });
-    });
+    // 先访问首页拿 cookies / 建立 session
+    await page.goto(base + '/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.waitForTimeout(1500);
 
-    const resolved = await Promise.all(rawItems.map(async (item) => ({ ...item, url: normalizeUrl(await resolveRedirectUrl(item.href)) })));
-    for (const item of resolved) {
-      if (item.url && item.url.startsWith('http') && !seen.has(item.url.toLowerCase())) {
-        seen.add(item.url.toLowerCase());
-        out.push({ title: item.title, url: item.url, snippet: item.snippet });
-      }
-    }
-    console.error(`[搜狗:http] ${out.length} 条`);
-  } catch (e) {
-    console.error(`[搜狗:http] 错误: ${e.message.split('\n')[0]}`);
-  }
-  return out.slice(0, max);
-}
-
-
-async function fetchTextViaPlaywright(url, timeout = HTTP_TIMEOUT) {
-  const api = await playwrightRequest.newContext({
-    userAgent: UA,
-    extraHTTPHeaders: {
-      'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    },
-  });
-  try {
-    const r = await api.get(url, { timeout, maxRedirects: 5 });
-    if (!r.ok()) throw new Error(`HTTP ${r.status()}`);
-    return await r.text();
-  } finally {
-    await api.dispose().catch(() => {});
-  }
-}
-
-async function searchDDGHtml(query, max) {
-  console.error(`[DDG:html] ${query}`);
-  const out = [], seen = new Set();
-  try {
-    let html = '';
+    // 搜索框提交
     try {
-      const r = await fetch('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query), {
-        headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9' },
-        signal: AbortSignal.timeout(HTTP_TIMEOUT), redirect: 'follow',
+      const searchBox = await page.$('input[name="q"]');
+      if (searchBox) {
+        await searchBox.click();
+        await searchBox.fill(query);
+        await page.waitForTimeout(300);
+        await Promise.all([
+          page.waitForLoadState('domcontentloaded', { timeout: PW_TIMEOUT }),
+          page.keyboard.press('Enter'),
+        ]);
+        await page.waitForTimeout(2500);
+      } else {
+        await page.goto(base + '/?q=' + encodeURIComponent(query), {
+          waitUntil: 'domcontentloaded', timeout: PW_TIMEOUT,
+        });
+        await page.waitForTimeout(2000);
+      }
+    } catch {
+      await page.goto(base + '/?q=' + encodeURIComponent(query), {
+        waitUntil: 'domcontentloaded', timeout: PW_TIMEOUT,
       });
-      if (!r.ok) { console.error(`[DDG:html] HTTP ${r.status}`); return out; }
-      html = await r.text();
-    } catch (e) {
-      console.error(`[DDG:html] fetch 失败，改用 Playwright request: ${e.message.split('\n')[0]}`);
-      html = await fetchTextViaPlaywright('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query));
+      await page.waitForTimeout(2000);
     }
-    const { load } = await import('cheerio');
-    const $ = load(html);
 
-    $('.result, .web-result').each((_, el) => {
-      const $el = $(el);
-      const $a = $el.find('.result__title a, .result__a, h2 a').first();
-      if (!$a.length) return;
-      const title = clean($a.text());
-      let href = $a.attr('href') || '';
-      try {
-        const uddg = new URL(href, 'https://duckduckgo.com').searchParams.get('uddg');
-        if (uddg) href = uddg;
-      } catch {}
-      const snippet = clean($el.find('.result__snippet, .result__body').text());
-      const url = normalizeUrl(href);
+    const results = await page.evaluate(() => {
+      const items = [];
+      const seen = new Set();
+      const add = (title, url, snippet) => {
+        if (title && url && url.startsWith('http') && !seen.has(url)) {
+          seen.add(url);
+          items.push({ title, url, snippet });
+        }
+      };
+      // DDG 主结果选择器（多版本 fallback）
+      const selectors = [
+        'article[data-testid="result"]',
+        'li[data-layout="organic"]',
+        '.result',
+        '.web-result',
+      ];
+      for (const sel of selectors) {
+        document.querySelectorAll(sel).forEach(el => {
+          const a = el.querySelector('a[href^="http"]');
+          const t = el.querySelector('h2, [data-testid="result-title-a"], .result__a, .result__title');
+          const s = el.querySelector('[data-testid="result-snippet"], .result__snippet, .result__body');
+          if (a && t) add((t.innerText || t.textContent || '').trim(), a.href, s ? (s.innerText || s.textContent || '').trim() : '');
+        });
+        if (items.length > 0) break;
+      }
+      return items;
+    });
+
+    for (const item of results) {
+      const url = normalizeUrl(item.url);
+      const title = clean(item.title);
+      const snippet = clean(item.snippet);
       if (title && url && url.startsWith('http') && !seen.has(url.toLowerCase())) {
         seen.add(url.toLowerCase());
         out.push({ title, url, snippet });
       }
-    });
-    console.error(`[DDG:html] ${out.length} 条`);
+    }
+    console.error(`[DDG:pw] ${out.length} 条`);
   } catch (e) {
-    console.error(`[DDG:html] 错误: ${e.message.split('\n')[0]}`);
+    console.error(`[DDG:pw] 错误: ${e.message.split('\n')[0]}`);
+  } finally {
+    if (context) await context.close().catch(() => {});
   }
   return out.slice(0, max);
 }
 
 // ==================== 自动抓取 ====================
-// 安全说明：使用 spawnSync 数组式参数 + shell:false，URL 作为独立 argv 项传递，
-// 不进 shell 解析，杜绝从搜索结果 URL 来的命令注入。
+// 直接 import 同语言函数，不再 spawn 子进程。
 async function autoFetchUrls(results, fetchCount, maxLen) {
   if (fetchCount <= 0 || results.length === 0) return;
-  // 仅放行 http/https 协议，过滤掉异常 URL
   const safeUrls = results
     .slice(0, Math.min(fetchCount, results.length))
     .map(r => r.url)
@@ -449,34 +376,21 @@ async function autoFetchUrls(results, fetchCount, maxLen) {
   console.error(`[fetch] 自动抓取 ${safeUrls.length} 条...`);
 
   try {
-    const fetchScript = path.resolve(__dirname, 'fetch.js');
-    const args = [fetchScript, ...safeUrls, `--max-len=${maxLen}`, '--headed'];
-    const result = child_process.spawnSync(process.execPath, args, {
-      encoding: 'utf8',
-      timeout: 60000,
-      shell: false,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      maxBuffer: 16 * 1024 * 1024,
-    });
-    if (result.error) {
-      console.error(`[fetch] 抓取失败: ${result.error.message.split('\n')[0]}`);
-      return;
-    }
-    if (result.status !== 0) {
-      console.error(`[fetch] 抓取退出码 ${result.status}`);
-      return;
-    }
-    try {
-      const fetched = JSON.parse(result.stdout);
-      for (let i = 0; i < Math.min(fetchCount, fetched.length); i++) {
-        if (fetched[i] && fetched[i].content) {
-          results[i].content = fetched[i].content.slice(0, maxLen);
-        }
+    const { fetchUrl } = await import('./fetch.js');
+    const tasks = safeUrls.map(async (url) => {
+      try {
+        const r = await fetchUrl(url, maxLen);
+        return r && r.content ? r.content.slice(0, maxLen) : '';
+      } catch (e) {
+        console.error(`[fetch] ${url} 失败: ${e.message.split('\n')[0]}`);
+        return '';
       }
-      console.error(`[fetch] 抓取完成`);
-    } catch (e) {
-      console.error(`[fetch] 解析失败: ${e.message.split('\n')[0]}`);
+    });
+    const contents = await Promise.all(tasks);
+    for (let i = 0; i < contents.length; i++) {
+      if (contents[i]) results[i].content = contents[i];
     }
+    console.error(`[fetch] 抓取完成`);
   } catch (e) {
     console.error(`[fetch] 抓取失败: ${e.message.split('\n')[0]}`);
   }
@@ -490,8 +404,7 @@ async function main() {
   program
     .argument('[query...]', '搜索关键词')
     .option('--max <n>', '结果数 (1-30)', v => parseInt(v, 10), DEFAULT_MAX)
-    .option('--region <r>', '区域: auto/cn/intl', 'auto')
-    .option('--engine <e>', '引擎: auto/bing/sogou/ddg', 'auto')
+    .option('--region <r>', '区域覆盖: auto/cn/intl（auto = IP 探测）', 'auto')
     .option('--fetch <n>', '自动抓前N条URL内容 (0=不抓)', v => parseInt(v, 10), DEFAULT_FETCH)
     .option('--max-len <n>', '单页最大字符数', v => parseInt(v, 10), 6000)
     .option('--no-fetch', '禁用自动抓取')
@@ -504,6 +417,7 @@ async function main() {
   const max = Math.max(1, Math.min(30, opts.max));
   const fetchCount = opts.fetch === true ? DEFAULT_FETCH : (opts.noFetch ? 0 : opts.fetch);
 
+  // 仅按 IP 归属判断（--region 仅作为代理用户的手动覆盖）
   let inChina;
   if (opts.region === 'cn') inChina = true;
   else if (opts.region === 'intl') inChina = false;
@@ -528,24 +442,17 @@ async function main() {
   };
 
   if (inChina) {
-    // 国内：根据 --engine 选择
-    const engine = opts.engine === 'auto' ? 'bing' : opts.engine;
-    if (engine === 'sogou') {
-      console.error('[策略] 国内 → 搜狗 HTTP（无 cookie，结果可能不稳定）');
-      add(await searchSogouHttp(query, max));
-    } else {
-      console.error('[策略] 国内 → Bing PW');
-      add(await searchBingPW(query, max));
-      if (out.length === 0) {
-        console.error('[策略] Bing 为空，兜底 → DDG HTML');
-        add(await searchDDGHtml(query, max));
-      }
+    console.error('[策略] IP 国内 → Bing CN');
+    add(await searchBingPW(query, max));
+    if (out.length === 0) {
+      console.error('[策略] Bing 为空，兜底 → DDG');
+      add(await searchDDGPW(query, max));
     }
   } else {
-    console.error('[策略] 海外 → DDG HTML');
-    add(await searchDDGHtml(query, max));
+    console.error('[策略] IP 国外 → DDG');
+    add(await searchDDGPW(query, max));
     if (out.length === 0) {
-      console.error('[策略] DDG 为空，兜底 → Bing PW');
+      console.error('[策略] DDG 为空，兜底 → Bing CN');
       add(await searchBingPW(query, max));
     }
   }

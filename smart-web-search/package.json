@@ -1,6 +1,6 @@
 {
   "name": "smart-web-search",
-  "version": "1.0.5",
+  "version": "2.0.0",
   "type": "module",
   "description": "智能联网搜索，国内外自动切换，Query 意图改写，双层内容抓取",
   "engines": {
