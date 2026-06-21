@@ -271,9 +271,13 @@ def _cmd_write(args) -> int:
     if _is_path_inside(backup, photo_dir):
         print(f"[write] backup dir cannot be inside source dir", file=sys.stderr)
         return 2
-    if backup.exists() and any(backup.iterdir()):
-        print(f"[write] backup dir is not empty: {backup}", file=sys.stderr)
-        return 2
+    if backup.exists():
+        if not backup.is_dir():
+            print(f"[write] backup path exists and is not a directory: {backup}", file=sys.stderr)
+            return 2
+        if any(backup.iterdir()):
+            print(f"[write] backup dir is not empty: {backup}", file=sys.stderr)
+            return 2
 
     if len(actionable) > WRITE_BATCH_CAP:
         print(f"[write] {len(actionable)} > {WRITE_BATCH_CAP} cap. Split into batches.",
@@ -291,12 +295,16 @@ def _cmd_write(args) -> int:
         if not src.is_file() or not is_jpg(src):
             failures.append(f"missing or non-JPG: {r['filename']}")
             continue
-        shutil.copy2(src, backup / r["filename"])
         try:
             lat = float(r["inferred_lat"])
             lon = float(r["inferred_lon"])
         except ValueError:
             failures.append(f"bad coords for {r['filename']}")
+            continue
+        try:
+            shutil.copy2(src, backup / r["filename"])
+        except Exception as e:
+            failures.append(f"backup failed for {r['filename']}: {e}")
             continue
         description = f"{r['city']}, {r['country']}"
         user_comment = (
@@ -308,8 +316,11 @@ def _cmd_write(args) -> int:
         except Exception as e:
             failures.append(f"write failed for {r['filename']}: {e}")
             continue
-        # verify
-        rb = read_gps(src)
+        try:
+            rb = read_gps(src)
+        except Exception as e:
+            failures.append(f"verify failed for {r['filename']}: {e}")
+            continue
         if rb is None or abs(rb[0] - lat) > 1e-3 or abs(rb[1] - lon) > 1e-3:
             failures.append(f"verify failed for {r['filename']}")
 

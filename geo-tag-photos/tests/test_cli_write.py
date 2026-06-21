@@ -60,6 +60,18 @@ def test_write_rejects_non_empty_backup_dir(make_jpg, tmp_path):
     assert code == 2
 
 
+def test_write_rejects_backup_path_that_is_a_file(make_jpg, tmp_path):
+    photos = tmp_path / "p"; photos.mkdir()
+    make_jpg(photos, name="a.jpg", gps=None)
+    rep = tmp_path / "rep.csv"
+    _make_report(rep, [_row("a.jpg", 1.0, 2.0)])
+    backup_file = tmp_path / "bak"
+    backup_file.write_text("not a dir")  # regular file, not a directory
+    code = main(["write", "--dir", str(photos), "--csv", str(rep),
+                 "--write", "--backup-dir", str(backup_file)])
+    assert code == 2
+
+
 def test_write_rejects_backup_inside_source(make_jpg, tmp_path):
     photos = tmp_path / "p"; photos.mkdir()
     make_jpg(photos, name="a.jpg", gps=None)
