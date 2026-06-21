@@ -4,10 +4,21 @@ from __future__ import annotations
 import argparse
 import csv
 import importlib
+import shutil
 import sys
 from pathlib import Path
 
 REQUIRED = [("piexif", "piexif"), ("PIL", "Pillow"), ("requests", "requests")]
+
+WRITE_BATCH_CAP = 500
+
+
+def _is_path_inside(child: Path, parent: Path) -> bool:
+    try:
+        child.resolve().relative_to(parent.resolve())
+        return True
+    except ValueError:
+        return False
 
 
 def _check_dependencies() -> None:
@@ -39,6 +50,18 @@ def _build_parser() -> argparse.ArgumentParser:
     rep.add_argument("--dir", required=True)
     rep.add_argument("--geocoded", required=True)
     rep.add_argument("--out", required=True)
+
+    wr = sub.add_parser("write", help="Write GPS into EXIF (default dry-run)")
+    wr.add_argument("--dir", required=True)
+    wr.add_argument("--csv", required=True)
+    wr.add_argument("--write", action="store_true",
+                    help="Actually modify files (otherwise dry-run)")
+    wr.add_argument("--backup-dir", default=None,
+                    help="Required with --write; must be empty or non-existent")
+    wr.add_argument("--include-low", action="store_true",
+                    help="Also write rows with confidence=low")
+    wr.add_argument("--overwrite-existing", action="store_true",
+                    help="Override existing GPS in EXIF (default: keep)")
 
     return p
 
@@ -208,6 +231,98 @@ def _cmd_report(args) -> int:
     return 0
 
 
+def _cmd_write(args) -> int:
+    from scripts.exif_io import is_jpg, read_gps, write_location
+
+    photo_dir = Path(args.dir)
+    if not photo_dir.is_dir():
+        print(f"[write] not a directory: {photo_dir}", file=sys.stderr)
+        return 2
+    csv_path = Path(args.csv)
+    if not csv_path.is_file():
+        print(f"[write] missing report CSV: {csv_path}", file=sys.stderr)
+        return 2
+
+    with csv_path.open(encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+
+    actionable: list[dict] = []
+    for r in rows:
+        if r["action"] == "WRITE":
+            actionable.append(r)
+        elif r["action"] == "SKIP_LOW_CONFIDENCE" and args.include_low:
+            actionable.append(r)
+        elif r["action"] == "SKIP_HAS_GPS" and args.overwrite_existing:
+            actionable.append(r)
+
+    print(f"[write] {len(actionable)} rows would be written; total rows in report: {len(rows)}")
+
+    if not args.write:
+        for r in actionable:
+            print(f"  DRY-RUN: {r['filename']} -> ({r['inferred_lat']}, {r['inferred_lon']})")
+        print("[write] dry-run only. Pass --write --backup-dir <path> to apply.")
+        return 0
+
+    if not args.backup_dir:
+        print("[write] --write requires --backup-dir <path>", file=sys.stderr)
+        return 2
+
+    backup = Path(args.backup_dir)
+    if _is_path_inside(backup, photo_dir):
+        print(f"[write] backup dir cannot be inside source dir", file=sys.stderr)
+        return 2
+    if backup.exists() and any(backup.iterdir()):
+        print(f"[write] backup dir is not empty: {backup}", file=sys.stderr)
+        return 2
+
+    if len(actionable) > WRITE_BATCH_CAP:
+        print(f"[write] {len(actionable)} > {WRITE_BATCH_CAP} cap. Split into batches.",
+              file=sys.stderr)
+        return 2
+
+    if not actionable:
+        return 0
+
+    backup.mkdir(parents=True, exist_ok=True)
+
+    failures: list[str] = []
+    for r in actionable:
+        src = photo_dir / r["filename"]
+        if not src.is_file() or not is_jpg(src):
+            failures.append(f"missing or non-JPG: {r['filename']}")
+            continue
+        shutil.copy2(src, backup / r["filename"])
+        try:
+            lat = float(r["inferred_lat"])
+            lon = float(r["inferred_lon"])
+        except ValueError:
+            failures.append(f"bad coords for {r['filename']}")
+            continue
+        description = f"{r['city']}, {r['country']}"
+        user_comment = (
+            f"confidence={r['confidence']}; landmark={r['landmark']}; source=geo-tag-photos"
+        )
+        try:
+            write_location(src, lat=lat, lon=lon,
+                           description=description, user_comment=user_comment)
+        except Exception as e:
+            failures.append(f"write failed for {r['filename']}: {e}")
+            continue
+        # verify
+        rb = read_gps(src)
+        if rb is None or abs(rb[0] - lat) > 1e-3 or abs(rb[1] - lon) > 1e-3:
+            failures.append(f"verify failed for {r['filename']}")
+
+    if failures:
+        print("[write] some operations had problems:", file=sys.stderr)
+        for line in failures:
+            print(f"  - {line}", file=sys.stderr)
+        return 1
+
+    print(f"[write] wrote and verified {len(actionable)} photos. Backups in {backup}.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     _check_dependencies()
     parser = _build_parser()
@@ -218,6 +333,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_geocode(args)
     if args.cmd == "report":
         return _cmd_report(args)
+    if args.cmd == "write":
+        return _cmd_write(args)
     parser.error(f"unknown command: {args.cmd}")
     return 2
 
