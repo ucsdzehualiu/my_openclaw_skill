@@ -17,3 +17,6 @@ oss_aliyun_aws_compare.md
 Thumbs.db
 .idea/
 .vscode/
+
+# subagent-driven-development scratch
+.superpowers/
