@@ -63,6 +63,12 @@ def _build_parser() -> argparse.ArgumentParser:
     wr.add_argument("--overwrite-existing", action="store_true",
                     help="Override existing GPS in EXIF (default: keep)")
 
+    ca = sub.add_parser("cache", help="Inspect or clear the geocode cache")
+    grp = ca.add_mutually_exclusive_group(required=True)
+    grp.add_argument("--show", action="store_true")
+    grp.add_argument("--clear", action="store_true")
+    ca.add_argument("--cache", default=None)
+
     return p
 
 
@@ -334,6 +340,22 @@ def _cmd_write(args) -> int:
     return 0
 
 
+def _cmd_cache(args) -> int:
+    cache_path = Path(args.cache) if args.cache else _default_cache_path()
+    if args.show:
+        if cache_path.exists():
+            print(cache_path.read_text(encoding="utf-8"))
+        else:
+            print("{}")
+        return 0
+    if args.clear:
+        if cache_path.exists():
+            cache_path.unlink()
+        print(f"[cache] cleared {cache_path}")
+        return 0
+    return 2
+
+
 def main(argv: list[str] | None = None) -> int:
     _check_dependencies()
     parser = _build_parser()
@@ -346,6 +368,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_report(args)
     if args.cmd == "write":
         return _cmd_write(args)
+    if args.cmd == "cache":
+        return _cmd_cache(args)
     parser.error(f"unknown command: {args.cmd}")
     return 2
 
