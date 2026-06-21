@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+e2e/landmarks/
+e2e/landmarks.bak/
+e2e/exif_status.csv
+e2e/ai_results.json
+e2e/geocoded.csv
+e2e/report.csv
+clawhub_scan.txt
