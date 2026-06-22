@@ -1,7 +1,7 @@
 ---
 name: smart-web-search
 description: Smart web search with auto region detection and dual-tier content fetching. Works in both China and international networks.
-version: 3.2.1
+version: 3.2.2
 author: smart-web-search
 trigger_keywords:
   - search

@@ -1,6 +1,6 @@
 {
   "name": "smart-web-search",
-  "version": "3.2.1",
+  "version": "3.2.2",
   "type": "module",
   "description": "智能联网搜索，国内外自动切换，双层内容抓取",
   "license": "Apache-2.0",
