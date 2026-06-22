@@ -13,7 +13,6 @@ import querystring from 'querystring';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { chromium } from 'playwright';
 import { findBrowserExecutable, launchBrowser } from './playwright-support.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -51,7 +50,7 @@ function depMissingError(missing) {
 
 async function checkDeps() {
   const missing = [];
-  for (const mod of ['cheerio', 'commander']) {
+  for (const mod of ['cheerio', 'commander', 'playwright']) {
     try { await import(mod); } catch { missing.push(mod); }
   }
   if (missing.length) {
@@ -400,6 +399,7 @@ async function autoFetchUrls(results, fetchCount, maxLen) {
 async function main() {
   const startTime = Date.now();
   await checkDeps();
+  const { chromium } = await import('playwright');
   const { program } = await import('commander');
   program
     .argument('[query...]', '搜索关键词')

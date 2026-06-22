@@ -4,19 +4,20 @@
 
 free-web-search-js 是一个基于 Playwright和JS写 的免费网络搜索skill 可用于CC或者openclaw（clawhub install free-web-search-js），无需 API Key，支持国内和海外搜索，自动抓取搜索结果内容。
 
+**Pure search — no rewriting, no filtering.** 噪音交给 AI 处理。使用真实浏览器（Playwright）处理 Bing CN 反爬，国际查询则使用 HTTP 加速。
+
 - **免费**：零成本使用，无需 API Key
 - **稳定**：根据网络环境自动切换搜索策略，提高可达性
 - **快速**：首次搜索 3\~6 秒，后续复用浏览器更快
 - **自动抓取**：搜索后自动抓取 top N 条结果内容
-- **跨区域**：国内使用 Bing/搜狗，海外使用 DDG
+- **跨区域**：国内使用 Bing，海外使用 DDG
 
 ## 支持的搜索引擎
 
 | 引擎       | 协议               | 区域 | 说明                                          |
 | -------- | ---------------- | -- | ------------------------------------------- |
 | Bing CN  | Playwright 搜索框提交 | 国内 | 先访问首页拿 cookie，再搜索框输入提交                      |
-| 搜狗       | 纯 HTTP           | 国内 | `--engine=sogou` 可选，无 cookie，结果不稳定 |
-| DDG HTML | 纯 HTTP           | 海外 | html.duckduckgo.com                         |
+| DDG | Playwright 搜索框提交 | 海外 | 完整浏览器自动化                         |
 
 ## 安装
 
@@ -40,8 +41,7 @@ free-web-search-js 是一个基于 Playwright和JS写 的免费网络搜索skill
 bash scripts/setup.sh
 
 # Windows
-# 目前仅提供 Linux/macOS 一键安装脚本
-# Windows 用户请使用手动安装方式
+powershell -File scripts/setup.ps1
 ```
 
 #### 手动安装
@@ -73,12 +73,6 @@ PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright npx playwright
 node scripts/check-env.js
 ```
 
-### 卸载
-
-```bash
-node scripts/uninstall.js
-```
-
 ## 用法
 
 ### 搜索（搜 + 自动抓内容）
@@ -92,9 +86,6 @@ node scripts/search.js "how to deploy docker" --max=5
 
 # 指定区域
 node scripts/search.js "xxx" --region=cn
-
-# 指定搜索引擎
-node scripts/search.js "xxx" --engine=bing
 
 # 控制抓取数量
 node scripts/search.js "xxx" --fetch=5          # 抓前5条

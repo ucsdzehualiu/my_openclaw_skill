@@ -14,7 +14,6 @@ import process from 'process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { chromium, request as playwrightRequest } from 'playwright';
 import { findBrowserExecutable, launchBrowser } from './playwright-support.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -33,12 +32,15 @@ function touchHeartbeat() {
 
 async function getBrowser() {
   try {
+    const { chromium } = await import('playwright');
     const info = JSON.parse(fs.readFileSync(ENDPOINT_FILE, 'utf-8'));
     process.kill(info.pid, 0);
     touchHeartbeat();
     const browser = await chromium.connectOverCDP(info.wsEndpoint);
     return { browser, shared: true };
-  } catch {}
+  } catch (e) {
+    if (e.code === 'MODULE_NOT_FOUND') throw e;
+  }
   const browser = await launchBrowser({ headless: true });
   return { browser, shared: false };
 }

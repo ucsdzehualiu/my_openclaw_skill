@@ -2,6 +2,8 @@
 name: free-web-search-js
 description: Web search & content fetching via Playwright + HTTP — zero API keys. Searches Bing CN (domestic) or DDG (international), auto-fetches top page contents. For real-time search, fact-checking, news, tutorials, documentation lookup.
 version: 29.0.0
+license: MIT
+author: free-web-search-js
 trigger_keywords:
   - search
   - find
@@ -40,9 +42,9 @@ tools:
         required: false
 ---
 
-# free-web-search-js v28.1
+# free-web-search-js
 
-Web search + content fetching via Playwright & HTTP. No API keys required.
+Pure search — no rewriting, no filtering, noise handled by the AI. Uses real browser automation (Playwright) for Bing CN anti-bot, with HTTP fallback for international queries. Zero API keys required.
 
 ## Quick start
 
@@ -133,8 +135,7 @@ node scripts/check-env.js
 | Engine | Method | Region | Notes |
 |---|---|---|---|
 | Bing CN | Playwright search box submit | Domestic | Visits home page first for cookie, then types into search box |
-| Sogou | Pure HTTP | Domestic | `--engine=sogou` opt-in; no cookie, unstable under anti-crawl |
-| DDG HTML Lite | Pure HTTP | International | html.duckduckgo.com |
+| DDG | Playwright search box submit | International | Full browser automation |
 
 ### Strategy
 
