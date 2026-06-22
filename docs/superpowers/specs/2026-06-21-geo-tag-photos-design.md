@@ -148,7 +148,7 @@ Only these four fields are touched. Everything else (capture time, camera, ISO, 
 | Nominatim returns no result | Row marked `GEOCODE_FAILED`; landmark text preserved for manual review |
 | Nominatim network error | Retry 3× with backoff, then skip that row and continue |
 | Photo already has GPS | `SKIP` (default) unless `--overwrite-existing` |
-| Non-JPG file present | Reject the whole run before any write |
+| Non-JPG file present | Listed as `SKIP_NOT_JPG` in the report; written-to set excludes them. The run continues for any valid JPGs. |
 
 ## 5. Dependencies
 

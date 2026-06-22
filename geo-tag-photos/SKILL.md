@@ -5,7 +5,7 @@ description: >
   and writing GPS coordinates back into EXIF. Default dry-run; explicit --write
   with --backup-dir is required to modify files. Global coverage via Nominatim
   (OpenStreetMap), no API keys.
-version: 1.0.0
+version: 1.0.1
 author: ucsdzehualiu
 license: MIT
 trigger_keywords:

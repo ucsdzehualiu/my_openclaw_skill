@@ -93,3 +93,24 @@ def test_report_marks_unknown_for_missing_ai_entry(make_jpg, tmp_path):
     out = tmp_path / "rep.csv"
     main(["report", "--dir", str(photos), "--geocoded", str(geo), "--out", str(out)])
     assert _read_csv(out)[0]["action"] == "SKIP_AI_UNKNOWN"
+
+
+def test_report_populates_inferred_fields_on_skip_has_gps(make_jpg, tmp_path):
+    """SKIP_HAS_GPS rows must still carry the AI inference so --overwrite-existing has data."""
+    photos = tmp_path / "p"; photos.mkdir()
+    make_jpg(photos, name="a.jpg", gps=(10.0, 20.0))
+    geo = tmp_path / "geo.csv"
+    _make_geo_csv(geo, [{
+        "filename": "a.jpg", "landmark": "Eiffel Tower", "city": "Paris", "country": "France",
+        "confidence": "high", "evidence": "tower",
+        "lat": "48.8584", "lon": "2.2945", "geocode_status": "OK",
+    }])
+    out = tmp_path / "rep.csv"
+    main(["report", "--dir", str(photos), "--geocoded", str(geo), "--out", str(out)])
+    row = _read_csv(out)[0]
+    assert row["action"] == "SKIP_HAS_GPS"
+    assert row["existing_lat"] != ""
+    # The fix: inferred fields are also populated for downstream --overwrite-existing
+    assert row["landmark"] == "Eiffel Tower"
+    assert row["inferred_lat"] == "48.8584"
+    assert row["confidence"] == "high"

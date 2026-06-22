@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import importlib
 import importlib.util
 import shutil
 import sys
@@ -203,6 +202,16 @@ def _cmd_report(args) -> int:
         gps = read_gps(entry)
         if gps:
             row["existing_lat"], row["existing_lon"] = gps
+            # Populate inferred fields too, so downstream --overwrite-existing
+            # has something to write. If no AI entry exists, fields stay empty
+            # and the write step will filter the row out.
+            g = geo_by_name.get(entry.name)
+            if g:
+                row.update({
+                    "landmark": g["landmark"], "city": g["city"], "country": g["country"],
+                    "confidence": g["confidence"], "evidence": g.get("evidence", ""),
+                    "inferred_lat": g["lat"], "inferred_lon": g["lon"],
+                })
             row["action"] = "SKIP_HAS_GPS"
             rows.append(row)
             continue
@@ -254,13 +263,24 @@ def _cmd_write(args) -> int:
         rows = list(csv.DictReader(f))
 
     actionable: list[dict] = []
+    overwrite_count = 0
     for r in rows:
         if r["action"] == "WRITE":
             actionable.append(r)
         elif r["action"] == "SKIP_LOW_CONFIDENCE" and args.include_low:
             actionable.append(r)
         elif r["action"] == "SKIP_HAS_GPS" and args.overwrite_existing:
-            actionable.append(r)
+            # Need inference data to actually write something.
+            if r.get("inferred_lat") and r.get("inferred_lon"):
+                actionable.append(r)
+                overwrite_count += 1
+
+    if overwrite_count:
+        print(
+            f"[write] WARNING: --overwrite-existing will replace existing GPS "
+            f"in {overwrite_count} photo(s).",
+            file=sys.stderr,
+        )
 
     print(f"[write] {len(actionable)} rows would be written; total rows in report: {len(rows)}")
 

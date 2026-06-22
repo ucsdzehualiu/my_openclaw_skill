@@ -125,3 +125,65 @@ def test_write_skips_non_write_actions(make_jpg, tmp_path):
     assert read_gps(p) is None
     # No backup created when there's nothing to write
     assert not backup.exists() or not any(backup.iterdir())
+
+
+def test_write_overwrite_existing_replaces_gps(make_jpg, tmp_path):
+    """End-to-end: photo has GPS, AI has inference, --overwrite-existing replaces it."""
+    photos = tmp_path / "p"; photos.mkdir()
+    p = make_jpg(photos, name="a.jpg", gps=(10.0, 20.0))  # existing GPS
+    rep = tmp_path / "rep.csv"
+    # Build a SKIP_HAS_GPS row with FULL inferred data (matches what fixed _cmd_report produces)
+    fields = ["filename", "existing_lat", "existing_lon", "landmark", "city", "country",
+              "confidence", "evidence", "inferred_lat", "inferred_lon", "action"]
+    row = {
+        "filename": "a.jpg",
+        "existing_lat": "10.0", "existing_lon": "20.0",
+        "landmark": "Eiffel Tower", "city": "Paris", "country": "France",
+        "confidence": "high", "evidence": "tower visible",
+        "inferred_lat": "48.8584", "inferred_lon": "2.2945",
+        "action": "SKIP_HAS_GPS",
+    }
+    import csv
+    with rep.open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fields); w.writeheader(); w.writerow(row)
+    backup = tmp_path / "bak"
+    code = main(["write", "--dir", str(photos), "--csv", str(rep),
+                 "--write", "--backup-dir", str(backup), "--overwrite-existing"])
+    assert code == 0
+    from scripts.exif_io import read_gps
+    new = read_gps(p)
+    assert new is not None
+    assert abs(new[0] - 48.8584) < 1e-3
+    assert abs(new[1] - 2.2945) < 1e-3
+    # Backup retains the original GPS
+    bak_gps = read_gps(backup / "a.jpg")
+    assert bak_gps is not None
+    assert abs(bak_gps[0] - 10.0) < 1e-3
+
+
+def test_write_overwrite_existing_skips_when_no_inference(make_jpg, tmp_path):
+    """SKIP_HAS_GPS without inference data should not be written even with --overwrite-existing."""
+    photos = tmp_path / "p"; photos.mkdir()
+    p = make_jpg(photos, name="a.jpg", gps=(10.0, 20.0))
+    rep = tmp_path / "rep.csv"
+    fields = ["filename", "existing_lat", "existing_lon", "landmark", "city", "country",
+              "confidence", "evidence", "inferred_lat", "inferred_lon", "action"]
+    row = {
+        "filename": "a.jpg",
+        "existing_lat": "10.0", "existing_lon": "20.0",
+        "landmark": "", "city": "", "country": "",
+        "confidence": "", "evidence": "",
+        "inferred_lat": "", "inferred_lon": "",
+        "action": "SKIP_HAS_GPS",
+    }
+    import csv
+    with rep.open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fields); w.writeheader(); w.writerow(row)
+    backup = tmp_path / "bak"
+    code = main(["write", "--dir", str(photos), "--csv", str(rep),
+                 "--write", "--backup-dir", str(backup), "--overwrite-existing"])
+    assert code == 0
+    from scripts.exif_io import read_gps
+    # Original GPS preserved (no inference to apply)
+    gps = read_gps(p)
+    assert abs(gps[0] - 10.0) < 1e-3
