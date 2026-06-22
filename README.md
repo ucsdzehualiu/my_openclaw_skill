@@ -37,6 +37,7 @@
 clawhub install prompt-optimizer-cn@latest
 clawhub install free-web-search@latest
 clawhub install geo-tag-photos@latest
+clawhub install @ucsdzehualiu/smart-web-search@latest  # 注意：需要 @owner/ 前缀（有同名 skill）
 # ... 其他技能同理
 
 # 或从本地安装（开发/测试）
@@ -108,7 +109,28 @@ clawhub install ./prompt-optimizer-cn
 
 **安装依赖**（Playwright 需手动设置）：
 
+**方式一：从 ClawHub 安装后配置依赖**
+
 ```bash
+# Claude Code 的 skill 默认安装在 ~/.claude/skills/ 下
+# Python 版
+cd ~/.claude/skills/@ucsdzehualiu/free-web-search/
+pip install -r requirements.txt
+python -m playwright install chromium
+
+# Node 版
+cd ~/.claude/skills/@ucsdzehualiu/free-web-search-js/  # 或 smart-web-search
+npm install
+npx playwright install chromium
+```
+
+**方式二：本地 git clone 后配置**
+
+```bash
+# 从项目根目录进入 skill 目录
+git clone https://github.com/ucsdzehualiu/my_openclaw_skill.git
+cd my_openclaw_skill
+
 # Python 版
 cd free-web-search/
 pip install -r requirements.txt
