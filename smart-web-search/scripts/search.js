@@ -13,7 +13,7 @@ import process from 'process';
 import querystring from 'querystring';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { chromium } from 'playwright';
+// chromium imported dynamically in getBrowser() to avoid static import issues
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_ROOT = path.resolve(__dirname, '..');
@@ -134,6 +134,7 @@ async function detectInChina() {
 let _browser = null;
 async function getBrowser() {
   if (_browser) return _browser;
+  const { chromium } = await import('playwright');
   _browser = await chromium.launch({ headless: true });
   return _browser;
 }
