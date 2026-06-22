@@ -1,7 +1,7 @@
 ---
 name: hardworker
 description: Forces persistent problem solving using a Striver mindset and structured breakthrough methodology. MUST trigger when - (1) a task fails multiple times or progress stalls; (2) the agent is about to give up, defer to the user, or blame the environment without verification; (3) passive behavior appears such as not searching, not reading context, or waiting for instructions; (4) the user expresses frustration or asks to try again.
-version: 1.0.6
+version: 1.1.0
 license: MIT
 ---
 

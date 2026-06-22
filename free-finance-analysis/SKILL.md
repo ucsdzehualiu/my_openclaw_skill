@@ -1,6 +1,6 @@
 ---
 name: free-finance-analysis
-version: 1.0.0
+version: 1.1.0
 author: free-finance-analysis
 license: MIT
 description: 股票、ETF、指数、大宗商品市场分析工具，整合实时行情、技术指标、市场情绪和财经新闻。适用于美股综合分析、止盈止损建议、估值判断场景。Stock/ETF/index/commodity market analysis, sentiment, technical indicators.

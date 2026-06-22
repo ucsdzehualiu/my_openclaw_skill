@@ -2,7 +2,7 @@
 name: cloud-product-analysis
 description: 云产品技术文档对比工具，自动抓取阿里云、华为云、AWS、腾讯云官方文档，生成结构化对比资料，辅助技术选型和学习
 author: cloud-product-analysis
-version: "4.6.0"
+version: "1.1.0"
 license: Apache-2.0
 allowed-tools: web_fetch, bash
 ---

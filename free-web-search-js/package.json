@@ -1,6 +1,6 @@
 {
   "name": "free-web-search-js",
-  "version": "29.0.0",
+  "version": "29.1.0",
   "type": "module",
   "description": "Playwright 联网搜索，国内Bing/搜狗，海外DDG，自动抓取，零 API Key",
   "license": "MIT",
