@@ -1,8 +1,0 @@
-{
-  "name": "striver-mode",
-  "description": "Forces persistent problem solving using a Striver mindset and structured breakthrough methodology.",
-  "version": "1.0.0",
-  "license": "MIT",
-  "languages": ["zh","en"],
-  "entry": "skill"
-}
