@@ -1,8 +1,8 @@
 ---
-name: prompt优化器
-description: 实用提示词优化工具 - 检测原提示词缺失要素（角色/步骤/格式/约束），智能补全后输出清晰易懂的优化版，帮助用户的意图更容易被 AI 理解执行
-usage: 当用户说"优化提示词"、"改进prompt"、"优化一下"、"optimize prompt"时触发
-license: MIT
+name: prompt-optimizer-cn
+description: 实用提示词优化工具 - 检测原提示词缺失要素（角色/步骤/格式/约束），智能补全后输出清晰易懂的优化版，帮助用户的意图更容易被 AI 理解执行。Use when user says 优化提示词 / 改进prompt / 优化一下 / optimize prompt.
+version: 1.0.0
+author: prompt-optimizer-cn
 tags:
   - prompt-optimization
   - prompt-engineering
@@ -14,10 +14,12 @@ tags:
 
 帮你把**模糊、简陋的 prompt** 改成**清晰、AI 容易理解执行的版本**。
 
-**核心流程**（3 步）：
+**核心流程**（5 步）：
 1. **诊断**：分析原 prompt 缺什么（角色？步骤？输出格式？约束？）
 2. **补全**：按需补上缺失要素（不需要的不强加）
 3. **输出**：优化后的 prompt（代码块包裹，方便复制）+ 一行说明改了什么
+4. **收集反馈**：询问用户是否满意
+5. **迭代**：根据反馈调整直到满意
 
 ## 实用框架（RTCF）
 
@@ -99,18 +101,18 @@ tags:
 - 处理边界情况（n <= 0）
 - 加 3 个测试用例
 
-示例输出格式：
-\`\`\`python
-def fibonacci(n: int) -> int:
-    """计算斐波那契数列第 n 项
-    
-    Args:
-        n: 正整数，目标项数
-    Returns:
-        第 n 项的值
-    """
-    # 实现...
-\`\`\`
+示例输出格式（使用缩进代替内部代码块）：
+
+    def fibonacci(n: int) -> int:
+        """计算斐波那契数列第 n 项
+        
+        Args:
+            n: 正整数，目标项数
+        Returns:
+            第 n 项的值
+        """
+        # 实现...
+
 ```
 
 **改了什么**：补角色、明确实现方式、加边界处理要求、给输出示例
@@ -253,13 +255,18 @@ Constraints: Avoid jargon like "superposition" unless you explain it first
 
 ---
 
-## 使用说明
+## 何时不应使用
 
-**触发方式**：
-- "优化一下这个 prompt"
-- "帮我改进这个提示词"
-- "这个 prompt 怎么写更好"
-- "Optimize this prompt"
+**不要在以下情况触发此技能**：
+
+1. **用户正在正常对话**：不是在讨论或请求优化 prompt
+2. **用户在执行其他任务**：如写代码、分析数据、回答问题等
+3. **prompt 已经很完善**：有清晰的角色、步骤、格式和约束
+4. **用户只是随口提到 "prompt" 这个词**：而非明确要求优化
+
+---
+
+## 使用说明
 
 **输入**：
 - 直接粘贴原 prompt
@@ -272,4 +279,6 @@ Constraints: Avoid jargon like "superposition" unless you explain it first
 
 ---
 
-**提示**：如果原 prompt 已经很完善（有角色、有步骤、有格式、有约束），工具会告诉你"已经很清晰，无需优化"或仅做微调。
+## 提示
+
+如果原 prompt 已经很完善（有角色、有步骤、有格式、有约束），工具会告诉你"已经很清晰，无需优化"或仅做微调。
