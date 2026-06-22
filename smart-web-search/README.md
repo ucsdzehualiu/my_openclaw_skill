@@ -15,28 +15,21 @@ node scripts/search.js "Python 教程" --max=3
 
 ## 核心优势
 
-✅ **纯 HTTP 架构**：搜索阶段无需浏览器，响应 < 3 秒  
-✅ **Query 智能改写**：自动优化搜索意图，提升结果相关性  
-✅ **国内外自动切换**：区域检测 + 引擎选择，全球可用  
+✅ **IP 引擎路由**：根据 IP 归属自动选择 Bing CN 或 DDG，全球可用  
+✅ **跨引擎兜底**：一个引擎返回空时自动切换到另一个  
 ✅ **双层内容抓取**：HTTP cheerio → Playwright headed 兜底  
-✅ **域名过滤**：可选过滤低质量域名（百度经验/知乎等）  
+✅ **全球无缝切换**：国内外环境自动适配，支持手动覆盖  
 
 ## 技术特点
 
 | 项目 | 说明 |
 |------|------|
-| 搜索引擎 | 国内 Bing HTML / 海外 DDG HTML（纯 HTTP） |
-| Query 改写 | 7 条意图识别规则（城市游玩、价格查询、对比等） |
+| 搜索引擎 | 国内 Bing CN / 海外 DDG（Playwright 全流程） |
 | 正文抓取 | HTTP + cheerio（JSON-LD/Next.js 提取）→ Playwright 兜底 |
 | 区域检测 | 三轮并行探测（myip.ipip.net / ipinfo.io / cn.bing.com） |
 | 去重策略 | 域名 + 路径主干（忽略 www/m 子域、tracking 参数） |
 
 ## 与其他工具对比
-
-相比 **free-web-search-js**（v28）和 **free-web-search**（Python v7）：
-- ✅ 搜索用纯 HTTP，避免 Playwright headless 检测问题
-- ✅ 整合两版最优特性：Query 改写（Python 版）+ 区域检测（JS 版）
-- ✅ 速度更快（<3s vs 6-10s）
 
 相比 **Claude Code 内置 WebFetch**：
 - 本工具：搜索 + 批量抓取（"查资料、找教程"）
@@ -46,22 +39,17 @@ node scripts/search.js "Python 教程" --max=3
 ## 示例
 
 ```bash
-# Query 改写
+# 基本搜索
 node scripts/search.js "今日金价"
-# [改写] 今日价格→去掉今日: "今日金价" → "金价"
-
-# 城市游玩查询
-node scripts/search.js "深圳有什么好玩的"
-# [改写] 城市游玩→景点: "深圳有什么好玩的" → "深圳 景点"
 
 # 只搜索不抓正文（极速模式）
-node scripts/search.js "React hooks" --no-fetch
-
-# 过滤低质量域名
-node scripts/search.js "编程入门" --filter
+node scripts/search.js "React hooks" --fetch=0
 
 # 抓取前5条正文
 node scripts/search.js "AI 趋势" --fetch=5
+
+# 手动指定区域
+node scripts/search.js "深圳景点" --region=cn
 ```
 
 ## 文档

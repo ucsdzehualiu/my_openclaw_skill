@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * free-web-search-js fetch.js v23.0
+ * smart-web-search fetch.js v2.0.0
  *
  * 两层兜底 + 增强：
  *   1. 轻量 HTTP + cheerio（快，不启动浏览器）
@@ -11,34 +11,29 @@
  * 多 URL 并行，打不开跳过
  */
 import process from 'process';
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { chromium, request as playwrightRequest } from 'playwright';
-import { findBrowserExecutable, launchBrowser } from './playwright-support.js';
+import { chromium } from 'playwright';
+import { launchBrowser } from './playwright-support.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ENDPOINT_FILE = path.resolve(__dirname, '..', '.browser-endpoint');
 
 const TIMEOUT = 35000;
 const DEFAULT_MAX_LEN = 12000;
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
 
-// ==================== 浏览器复用 ====================
+// ==================== 浏览器管理 ====================
+let _browser = null;
 async function getBrowser() {
-  try {
-    const info = JSON.parse(fs.readFileSync(ENDPOINT_FILE, 'utf-8'));
-    process.kill(info.pid, 0);
-    const browser = await chromium.connectOverCDP(info.wsEndpoint);
-    return { browser, shared: true };
-  } catch {}
+  if (_browser) return { browser: _browser, shared: false };
   const browser = await launchBrowser({ headless: true });
+  _browser = browser;
   return { browser, shared: false };
 }
 
 function releaseBrowser(browser, shared) {
-  return shared ? browser.disconnect() : browser.close();
+  return browser.close();
 }
 
 const PAGE_COMPAT_INIT = () => {

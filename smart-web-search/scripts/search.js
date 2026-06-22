@@ -165,7 +165,6 @@ async function searchBingPW(query, max) {
     await page.goto(base + '/', { waitUntil: 'domcontentloaded', timeout: 15000 });
     await page.waitForTimeout(1500);
 
-// __APPEND_MARKER_1__
     // 2) 通过搜索框提交（携带首页 cookies）
     try {
       const searchBox = await page.$('#sb_form_q');
@@ -216,7 +215,6 @@ async function searchBingPW(query, max) {
       }
       return items;
     });
-// __APPEND_MARKER_2__
 
     for (const item of results) {
       const url = normalizeUrl(item.url);
@@ -256,7 +254,6 @@ async function searchDDGPW(query, max) {
     // 1) 先访问首页建立 session 并拿 cookies
     await page.goto(base + '/', { waitUntil: 'domcontentloaded', timeout: 15000 });
     await page.waitForTimeout(1500);
-// __APPEND_MARKER_3__
 
     // 2) 搜索框提交（携带首页 cookies）
     try {
@@ -309,7 +306,6 @@ async function searchDDGPW(query, max) {
       }
       return items;
     });
-// __APPEND_MARKER_4__
 
     for (const item of results) {
       const url = normalizeUrl(item.url);
@@ -359,7 +355,6 @@ async function autoFetch(results, fetchCount, maxLen) {
     console.error(`[fetch] 失败: ${e.message.split('\n')[0]}`);
   }
 }
-// __APPEND_MARKER_5__
 
 // ==================== main ====================
 async function main() {
@@ -396,7 +391,6 @@ async function main() {
       if (!seen.has(key)) { seen.add(key); out.push(item); }
     }
   };
-// __APPEND_MARKER_6__
 
   if (inChina) {
     console.error('[策略] IP 国内 → Bing CN');

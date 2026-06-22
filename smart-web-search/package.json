@@ -2,7 +2,8 @@
   "name": "smart-web-search",
   "version": "2.0.0",
   "type": "module",
-  "description": "智能联网搜索，国内外自动切换，Query 意图改写，双层内容抓取",
+  "description": "智能联网搜索，国内外自动切换，双层内容抓取",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=18"
   },

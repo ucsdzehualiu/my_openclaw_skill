@@ -1,5 +1,4 @@
 node_modules/
-package-lock.json
 *.png
 *.html
 test_*.md

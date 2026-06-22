@@ -1,6 +1,6 @@
 ---
-name: free-smart-web-search
-description: Smart web search with auto region detection, query intent rewriting, and dual-tier content fetching. Works in both China and international networks.
+name: smart-web-search
+description: Smart web search with auto region detection and dual-tier content fetching. Works in both China and international networks.
 version: 2.0.0
 author: smart-web-search
 trigger_keywords:
@@ -11,7 +11,7 @@ trigger_keywords:
   - 查一下
 tools:
   - name: search
-    description: Smart search with auto Bing/DDG selection, query rewriting, content fetching
+    description: Smart search with auto Bing/DDG selection and content fetching
     script: scripts/search.js
     parameters:
       query:
@@ -26,38 +26,29 @@ tools:
         type: integer
         description: "Fetch top N page contents, default 3, 0 to disable"
         required: false
-      filter:
-        type: boolean
-        description: "Filter low-quality domains, default false"
+      region:
+        type: string
+        description: "Region override: auto/cn/intl (auto = IP detection)"
         required: false
 ---
 
-# smart-web-search v1.0.4
+# smart-web-search v2.0.0
 
-Intelligent web search with region auto-detection, query intent optimization, and dual-tier content extraction.
+Intelligent web search with region auto-detection and dual-tier content extraction.
 
 ## Core features
 
 ### 1. Auto region detection
 - Detects CN vs international via IP geolocation APIs + cn.bing.com probe
-  - CN → Bing CN (HTTP first, headed cookie warm-up if needed)
-  - International → DDG HTML
+  - CN → Bing CN (Playwright full flow)
+  - International → DDG HTML (Playwright full flow)
 - Fallback: defaults to DDG on detection failure (proxy/timeout)
+- Manual override available via `--region cn/intl`
 
-### 2. Query intent rewriting
-Rewrites common natural-language queries for better search results:
-- "深圳有什么好玩的" → "深圳 景点"
-- "今日金价" → "金价"
-- "React 教程" → "React 教程"
-- "怎么做红烧肉" → "红烧肉 做法"
-
-### 3. Dual-tier content fetching
+### 2. Dual-tier content fetching
 After search, auto-fetches top N page contents (default 3):
 - Tier 1: HTTP + cheerio (fast, no browser)
 - Tier 2: Playwright headed (JS rendering fallback)
-
-### 4. Low-quality filtering (opt-in)
-`--filter` flag excludes common low-signal domains (zhidao.baidu.com, jingyan.baidu.com, etc.)
 
 ## Install
 
@@ -113,8 +104,8 @@ node scripts/search.js "how to deploy docker" --max=5
 # Disable fetch (search only)
 node scripts/search.js "xxx" --fetch=0
 
-# Filter low-quality domains
-node scripts/search.js "深圳旅游攻略" --filter
+# Override region detection
+node scripts/search.js "深圳旅游攻略" --region=cn
 
 # Fetch specific URLs
 node scripts/fetch.js "https://example.com/page1" "https://example.com/page2"
@@ -122,16 +113,14 @@ node scripts/fetch.js "https://example.com/page1" "https://example.com/page2"
 
 ## Privacy & network
 
-- Searches connect to Bing CN / DDG HTML directly from the skill runtime
-- **Headed cookie warm-up**: When Bing HTTP returns <3 results, a headed browser context visits cn.bing.com to obtain session cookies. The browser closes immediately after cookie retrieval. Cookies are used only for the current search session and are not persisted to disk.
+- Searches connect to Bing CN / DDG HTML via Playwright (full browser automation)
+- **Playwright session**: Opens browser homepage to establish session cookies, then submits search via form input. Browser context closes after search completes.
 - No analytics, no telemetry, no third-party logging beyond search engine server logs
 
 ## Known limitations
 
-- **Bing cookie warm-up adds 3–6s**: Only triggered when HTTP search returns <3 results
-- **Query rewriting may miss intent**: 80+ rules cover common patterns, but edge cases exist
-- **Low-quality filter is heuristic**: May exclude valid results or miss spam
-- **Proxy interference**: IP detection may misclassify; no manual override available
+- **Playwright overhead adds 5–8s**: Full browser automation for cookie/session handling
+- **Proxy interference**: IP detection may misclassify; use `--region cn/intl` to override
 - **JS-required pages**: HTTP tier returns empty for SPA pages; headed tier catches them
 
 ## Verification
