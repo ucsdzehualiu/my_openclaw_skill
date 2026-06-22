@@ -28,15 +28,13 @@ else
 fi
 
 echo "[1/3] 安装 Python 包..."
-$PIP install httpx beautifulsoup4 playwright $PIP_ARGS
+$PIP install playwright $PIP_ARGS
 
 echo "[2/3] 安装 Chromium 浏览器..."
 playwright install chromium
 
 echo "[3/3] 验证安装..."
 python3 -c "
-import httpx; print('  httpx OK')
-from bs4 import BeautifulSoup; print('  beautifulsoup4 OK')
 from playwright.sync_api import sync_playwright; print('  playwright OK')
 pw = sync_playwright().start()
 b = pw.chromium.launch(headless=True)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-free-web-search v9.0
+free-web-search v8.0.0
 
 路由策略：仅按 IP 归属判断
   - IP 国内 → Bing CN（Playwright 全流程：开首页拿 cookies → 搜索框提交）

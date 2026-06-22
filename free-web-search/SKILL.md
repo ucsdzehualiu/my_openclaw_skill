@@ -26,14 +26,6 @@ tools:
         type: integer
         description: 抓取前 N 条结果的网页全文内容，默认 0（不抓取），最大 5
         required: false
-      engine:
-        type: string
-        description: 搜索引擎选择，bing/duckduckgo/auto（默认 bing）
-        required: false
-      filter:
-        type: boolean
-        description: 过滤低质量域名（如知乎、百度知道），默认 false（不过滤）
-        required: false
 ---
 
 # free-web-search 联网搜索工具
@@ -54,8 +46,7 @@ trigger_keywords 已经收窄到只识别 `free-web-search`、`联网搜索`、`
 
 - **中文环境优化**：默认 `mkt=zh-CN`，结果以中文为主
 - **可选全文抓取**：通过 `--full=N` 抓取前 N 条结果正文（默认 0 不抓取）
-- **质量评分**：低质量域名命中、单域名集中时自动重试
-- **意图改写**：搜索质量差时按预定义规则改写 query（可用 `--no-rewrite` 禁用）
+- **智能路由**：基于 IP 地理位置自动选择 Bing CN（国内）或 DuckDuckGo（国外），单引擎失败时自动兜底
 - **Headless 浏览器**：服务器/容器可用，仅开 `--no-sandbox`、`--disable-gpu`、`--disable-dev-shm-usage` 三个标准稳定性参数
 
 ## 安装
@@ -75,9 +66,6 @@ trigger_keywords 已经收窄到只识别 `free-web-search`、`联网搜索`、`
 ```bash
 # Linux / macOS
 bash scripts/setup.sh
-
-# Windows
-powershell -File scripts/setup.ps1
 ```
 
 ### 手动安装
@@ -96,14 +84,9 @@ python scripts/web_search.py "Python 异步编程 最佳实践 2026" --max=10
 # 搜索 + 抓前 3 条全文
 python scripts/web_search.py "中国大型邮轮 花城号 出坞" --full=3
 
-# auto 模式：Bing 结果不足时切换 DuckDuckGo
-python scripts/web_search.py "技术教程" --engine=auto
-
-# 过滤知乎/百度知道等低质量域名
-python scripts/web_search.py "某话题" --filter
-
-# 禁用 query 改写（调试用）
-python scripts/web_search.py "今日金价" --no-rewrite
+# 手动指定区域（代理用户）
+python scripts/web_search.py "技术教程" --region=cn    # 强制 Bing CN
+python scripts/web_search.py "技术教程" --region=intl  # 强制 DuckDuckGo
 ```
 
 ## 搜索 Query 优化建议
@@ -128,9 +111,7 @@ python scripts/web_search.py "今日金价" --no-rewrite
 | `query` | 字符串 | — | 必填 | 搜索关键词 |
 | `--max` | 整数 | 10 | 1-20 | 最多返回条数 |
 | `--full` | 整数 | 0 | 0-5 | 抓取前 N 条全文 |
-| `--engine` | 字符串 | bing | bing/duckduckgo/auto | 搜索引擎 |
-| `--filter` | 布尔 | false | — | 过滤低质量域名 |
-| `--no-rewrite` | 布尔 | false | — | 禁用 query 改写 |
+| `--region` | 字符串 | auto | auto/cn/intl | 区域覆盖（auto = IP 探测，cn = Bing CN，intl = DuckDuckGo） |
 
 ## 隐私与网络说明
 
@@ -138,8 +119,9 @@ python scripts/web_search.py "今日金价" --no-rewrite
 
 | 目的 | 端点 | 数据 |
 |---|---|---|
-| Bing 搜索（默认引擎） | `cn.bing.com` | 你的 query 文本、IP、UA |
-| DuckDuckGo 搜索（备用） | `duckduckgo.com` | 同上 |
+| IP 地理位置探测 | `myip.ipip.net`, `cip.cc`, `ipinfo.io/json`, `ipapi.co/json` | 你的 IP、UA |
+| Bing 搜索（国内 IP 默认） | `cn.bing.com` | 你的 query 文本、IP、UA |
+| DuckDuckGo 搜索（国外 IP 默认） | `duckduckgo.com` | 你的 query 文本、IP、UA |
 | 抓取目标页（仅当 `--full > 0`） | 各搜索结果对应的站点 | 你的 IP、UA、Referer |
 
 工具本身：
@@ -148,13 +130,32 @@ python scripts/web_search.py "今日金价" --no-rewrite
 - 不在运行时安装 pip 包、不修改宿主目录之外的文件
 - 浏览器 cookie 仅在当前 Playwright 上下文内使用，进程退出即销毁
 
-如果你不希望抓取目标页，把 `--full` 留在默认值 `0` 即可，工具只会访问搜索引擎。
+如果你不希望抓取目标页，把 `--full` 留在默认值 `0` 即可，工具只会访问搜索引擎和 IP 探测服务。
+
+## 与 free-web-search-js 的区别
+
+**free-web-search**（本工具）：
+- 轻量级 Python 实现，无需 Node.js
+- 依赖 Playwright + Chromium（~150 MB）
+- 适合简单查询、快速结果
+- 不支持复杂 JS 渲染的单页应用
+
+**free-web-search-js**：
+- 基于 Puppeteer 的 Node.js 实现
+- 完整浏览器环境，支持重度 JS 渲染
+- 适合需要完整 DOM 交互的场景
+
+选择建议：优先使用本工具（free-web-search），仅在遇到 JS 渲染问题时切换到 free-web-search-js。
+
+## 测试
+
+当前版本无自动化测试覆盖。欢迎贡献测试用例。
 
 ## 常见问题
 
 ### 搜索返回空结果
 - 检查网络（Bing 国内版偶发限流，工具已内置 3s 节流和指数退避）
-- 试 `--engine=duckduckgo`（前提是网络可达）
+- 如果在国外但被误判为国内，试 `--region=intl` 强制 DuckDuckGo
 - 检查 query 是否过于冗长
 
 ### 浏览器启动失败
@@ -166,11 +167,12 @@ playwright install chromium
 
 ### 全文抓取失败
 - 部分站点 JS 渲染较重或返回非 HTML，工具不会做特殊处理
-- 黑名单/低质量域名（百度知道、知乎等）在 `--filter` 启用时跳过
+- 考虑使用 free-web-search-js（基于 Puppeteer，JS 渲染能力更强）
 
-### 单域名集中
-- 工具自动检测并打印 `[WARN] 单域名集中: xxx`
-- 触发时会自动用 `-site:xxx` 排除该域名重试一次（最多 2 轮）
+### IP 探测失败或被误判
+- 工具依次探测 4 个公开 IP 服务（myip.ipip.net、cip.cc、ipinfo.io、ipapi.co）
+- 如果所有探测失败，默认使用 DuckDuckGo（国外）
+- 可通过 `--region=cn` 或 `--region=intl` 手动覆盖
 
 ## 已知限制
 
