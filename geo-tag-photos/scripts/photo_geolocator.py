@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import csv
 import importlib
+import importlib.util
 import shutil
 import sys
 from pathlib import Path
@@ -375,4 +376,10 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    # Allow running as `python scripts/photo_geolocator.py ...` from the skill root
+    # by adding the parent directory (which contains `scripts/`) to sys.path.
+    _here = Path(__file__).resolve().parent
+    _root = _here.parent
+    if str(_root) not in sys.path:
+        sys.path.insert(0, str(_root))
     raise SystemExit(main())

@@ -19,14 +19,14 @@ from PIL import Image
 
 # (filename in e2e/landmarks/, source URL on Wikimedia thumbnails)
 LANDMARKS = [
-    ("01_eiffel.jpg",   "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Tour_Eiffel_Wikimedia_Commons.jpg/640px-Tour_Eiffel_Wikimedia_Commons.jpg"),
-    ("02_liberty.jpg",  "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Statue_of_Liberty_7.jpg/640px-Statue_of_Liberty_7.jpg"),
-    ("03_opera.jpg",    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Sydney_Opera_House_-_Dec_2008.jpg/640px-Sydney_Opera_House_-_Dec_2008.jpg"),
-    ("04_greatwall.jpg","https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/The_Great_Wall_of_China_at_Jinshanling-edit.jpg/640px-The_Great_Wall_of_China_at_Jinshanling-edit.jpg"),
-    ("05_tajmahal.jpg", "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Taj_Mahal_%28Edited%29.jpeg/640px-Taj_Mahal_%28Edited%29.jpeg"),
-    ("06_colosseum.jpg","https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Colosseo_2020.jpg/640px-Colosseo_2020.jpg"),
-    ("07_christ.jpg",   "https://upload.wikimedia.org/wikipedia/commons/thumb/6/61/Christ_the_Redeemer_-_Cristo_Redentor.jpg/640px-Christ_the_Redeemer_-_Cristo_Redentor.jpg"),
-    ("08_bigben.jpg",   "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/London_Parliament_2007-1.jpg/640px-London_Parliament_2007-1.jpg"),
+    ("01_eiffel.jpg",   "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Tour_Eiffel_Wikimedia_Commons.jpg/960px-Tour_Eiffel_Wikimedia_Commons.jpg"),
+    ("02_liberty.jpg",  "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Statue_of_Liberty_7.jpg/960px-Statue_of_Liberty_7.jpg"),
+    ("03_opera.jpg",    "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Sydney_Opera_House_-_Dec_2008.jpg/960px-Sydney_Opera_House_-_Dec_2008.jpg"),
+    ("04_greatwall.jpg","https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/The_Great_Wall_of_China_at_Jinshanling-edit.jpg/960px-The_Great_Wall_of_China_at_Jinshanling-edit.jpg"),
+    ("05_tajmahal.jpg", "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Taj_Mahal_%28Edited%29.jpeg/960px-Taj_Mahal_%28Edited%29.jpeg"),
+    ("06_colosseum.jpg","https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Colosseo_2020.jpg/960px-Colosseo_2020.jpg"),
+    ("07_christ.jpg",   "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Christ_the_Redeemer_-_Cristo_Redentor.jpg/960px-Christ_the_Redeemer_-_Cristo_Redentor.jpg"),
+    ("08_bigben.jpg",   "https://upload.wikimedia.org/wikipedia/commons/thumb/4/42/London_Parliament_2007-1.jpg/960px-London_Parliament_2007-1.jpg"),
 ]
 
 USER_AGENT = "geo-tag-photos-e2e/1.0 (https://github.com/ucsdzehualiu/my_openclaw_skill)"
