@@ -191,31 +191,37 @@ async function searchBingPW(query, max) {
       await page.waitForTimeout(1500);
     }
 
-    const results = await page.evaluate(() => {
-      const items = [];
-      const seen = new Set();
-      const add = (title, url, snippet) => {
-        if (title && url && url.startsWith('http') && !seen.has(url)) {
-          seen.add(url);
-          items.push({ title, url, snippet });
-        }
-      };
-      document.querySelectorAll('li.b_algo').forEach(el => {
-        const a = el.querySelector('h2 a');
-        if (!a) return;
-        add(a.textContent.trim(), a.href, el.querySelector('.b_caption p')?.textContent?.trim() || '');
-      });
-      if (items.length === 0) {
-        document.querySelectorAll('li.b_ans, li.b_vList, li.b_entityTP, li.b_mop').forEach(el => {
-          el.querySelectorAll('a[href]').forEach(a => {
-            const href = a.href;
-            if (!href || href.includes('bing.com') || href.includes('microsoft.com') || href.startsWith('javascript:')) return;
-            add(a.textContent.trim().slice(0, 120), href, '');
-          });
+    let results = [];
+    try {
+      results = await page.evaluate(() => {
+        const items = [];
+        const seen = new Set();
+        const add = (title, url, snippet) => {
+          if (title && url && url.startsWith('http') && !seen.has(url)) {
+            seen.add(url);
+            items.push({ title, url, snippet });
+          }
+        };
+        document.querySelectorAll('li.b_algo').forEach(el => {
+          const a = el.querySelector('h2 a');
+          if (!a) return;
+          add(a.textContent.trim(), a.href, el.querySelector('.b_caption p')?.textContent?.trim() || '');
         });
-      }
-      return items;
-    });
+        if (items.length === 0) {
+          document.querySelectorAll('li.b_ans, li.b_vList, li.b_entityTP, li.b_mop').forEach(el => {
+            el.querySelectorAll('a[href]').forEach(a => {
+              const href = a.href;
+              if (!href || href.includes('bing.com') || href.includes('microsoft.com') || href.startsWith('javascript:')) return;
+              add(a.textContent.trim().slice(0, 120), href, '');
+            });
+          });
+        }
+        return items;
+      });
+    } catch (evalErr) {
+      console.error(`[Bing:pw] evaluate 失败: ${evalErr.message.split('\n')[0]}`);
+      results = [];
+    }
 
     for (const item of results) {
       const url = normalizeUrl(item.url);
@@ -281,32 +287,38 @@ async function searchDDGPW(query, max) {
       await page.waitForTimeout(2000);
     }
 
-    const results = await page.evaluate(() => {
-      const items = [];
-      const seen = new Set();
-      const add = (title, url, snippet) => {
-        if (title && url && url.startsWith('http') && !seen.has(url)) {
-          seen.add(url);
-          items.push({ title, url, snippet });
+    let results = [];
+    try {
+      results = await page.evaluate(() => {
+        const items = [];
+        const seen = new Set();
+        const add = (title, url, snippet) => {
+          if (title && url && url.startsWith('http') && !seen.has(url)) {
+            seen.add(url);
+            items.push({ title, url, snippet });
+          }
+        };
+        const selectors = [
+          'article[data-testid="result"]',
+          'li[data-layout="organic"]',
+          '.result',
+          '.web-result',
+        ];
+        for (const sel of selectors) {
+          document.querySelectorAll(sel).forEach(el => {
+            const a = el.querySelector('a[href^="http"]');
+            const t = el.querySelector('h2, [data-testid="result-title-a"], .result__a, .result__title');
+            const s = el.querySelector('[data-testid="result-snippet"], .result__snippet, .result__body');
+            if (a && t) add((t.innerText || t.textContent || '').trim(), a.href, s ? (s.innerText || s.textContent || '').trim() : '');
+          });
+          if (items.length > 0) break;
         }
-      };
-      const selectors = [
-        'article[data-testid="result"]',
-        'li[data-layout="organic"]',
-        '.result',
-        '.web-result',
-      ];
-      for (const sel of selectors) {
-        document.querySelectorAll(sel).forEach(el => {
-          const a = el.querySelector('a[href^="http"]');
-          const t = el.querySelector('h2, [data-testid="result-title-a"], .result__a, .result__title');
-          const s = el.querySelector('[data-testid="result-snippet"], .result__snippet, .result__body');
-          if (a && t) add((t.innerText || t.textContent || '').trim(), a.href, s ? (s.innerText || s.textContent || '').trim() : '');
-        });
-        if (items.length > 0) break;
-      }
-      return items;
-    });
+        return items;
+      });
+    } catch (evalErr) {
+      console.error(`[DDG:pw] evaluate 失败: ${evalErr.message.split('\n')[0]}`);
+      results = [];
+    }
 
     for (const item of results) {
       const url = normalizeUrl(item.url);
