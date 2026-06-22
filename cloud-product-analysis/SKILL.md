@@ -1,10 +1,10 @@
 ---
-name: cloud-compare
-description: 云产品技术文档对比工具，自动抓取阿里云、华为云、AWS 官方文档，生成结构化对比资料，辅助技术选型和学习
-author: cloud-compare
-version: "4.5.0"
+name: cloud-product-analysis
+description: 云产品技术文档对比工具，自动抓取阿里云、华为云、AWS、腾讯云官方文档，生成结构化对比资料，辅助技术选型和学习
+author: cloud-product-analysis
+version: "4.6.0"
 license: Apache-2.0
-allowed-tools: web_fetch
+allowed-tools: web_fetch, bash
 ---
 
 # 云产品文档对比工具
@@ -49,6 +49,7 @@ python scripts/cloud_doc_scraper.py --list
 - `aliyun`（阿里云）
 - `huawei`（华为云）
 - `aws`（亚马逊云）
+- `tencent`（腾讯云）
 
 **输出**：markdown 文件，包含各厂商的官方文档原文 + 更新日志，可直接粘贴给 AI 做竞品分析。
 
@@ -143,6 +144,25 @@ python scripts/cloud_doc_scraper.py --list
 | AI | SageMaker | https://docs.aws.amazon.com/zh_cn/sagemaker/ | PAI / ModelArts |
 | AI | Bedrock | https://docs.aws.amazon.com/zh_cn/bedrock/ | 百炼 / 盘古 |
 
+### 腾讯云
+| 品类 | 产品 | 文档 | 对应阿里云/华为云 |
+|------|------|------|----------|
+| 计算 | 云服务器 CVM | https://cloud.tencent.com/document/product/213 | ECS / ECS |
+| 计算 | 云函数 SCF | https://cloud.tencent.com/document/product/583 | FC / FunctionGraph |
+| 存储 | 对象存储 COS | https://cloud.tencent.com/document/product/436 | OSS / OBS |
+| 存储 | 文件存储 CFS | https://cloud.tencent.com/document/product/582 | NAS / SFS |
+| 数据库 | 云数据库 MySQL | https://cloud.tencent.com/document/product/236 | RDS / RDS |
+| 数据库 | 云数据库 Redis | https://cloud.tencent.com/document/product/239 | Redis / DCS |
+| 数据库 | 数据仓库 CDWPG | https://cloud.tencent.com/document/product/878 | AnalyticDB / DWS |
+| 容器 | 容器服务 TKE | https://cloud.tencent.com/document/product/457 | ACK / CCE |
+| 网络 | 负载均衡 CLB | https://cloud.tencent.com/document/product/214 | SLB / ELB |
+| 网络 | CDN | https://cloud.tencent.com/document/product/228 | CDN / CDN |
+| 大数据 | 弹性 MapReduce | https://cloud.tencent.com/document/product/589 | MaxCompute / MRS |
+| 大数据 | 流计算 Oceanus | https://cloud.tencent.com/document/product/849 | Flink / DLI |
+| 搜索 | Elasticsearch | https://cloud.tencent.com/document/product/845 | Elasticsearch / CSS |
+| AI | 机器学习平台 TI | https://cloud.tencent.com/document/product/851 | PAI / ModelArts |
+| AI | 腾讯混元大模型 | https://cloud.tencent.com/document/product/1729 | 百炼 / 盘古 |
+
 ---
 
 ## 使用方式
@@ -187,7 +207,7 @@ python scripts/cloud_doc_scraper.py --product {product_key} --output {product_ke
 
 所有结论必须基于官方文档，标注信息来源。
 
-**第七步：保存并展示结果**
+**第六步：保存并展示结果**
 1. 将完整分析报告保存为 markdown 文件（如 `{product_key}_competitive_analysis.md`），写入 workspace
 2. **必须将分析报告的核心内容直接展示给用户**——不要只说"已保存到文件"，而是把关键结论、对比表格、选型建议等直接输出到对话中，让用户一眼就能看到结果
 3. 在展示末尾附上文件路径，方便用户后续引用

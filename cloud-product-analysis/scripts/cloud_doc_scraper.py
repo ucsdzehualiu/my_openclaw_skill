@@ -1,6 +1,14 @@
 """
-阿里云 & 华为云产品文档深度爬虫 v4.1
+云产品文档深度爬虫 v4.6.0
 逻辑：依赖检测 → 解析左侧目录 → 按优先级筛选核心页面 → 并发抓取 → 输出供 AI 分析的 markdown
+
+v4.6.0 改进：
+  - 统一标识符为 cloud-product-analysis
+  - 完善腾讯云支持并更新文档
+  - 移除死代码（自动安装逻辑）
+  - 依赖检测移至 main() 函数，允许 --help 无需依赖即可运行
+  - 分离测试套件（离线 vs 网络集成）
+  - 添加单元测试覆盖核心函数
 
 v4.1 改进：
   - 依赖检测替代自动安装：缺失时提示用户手动安装，不静默下载包或浏览器
@@ -42,34 +50,6 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-# ─── 自动安装依赖 ──────────────────────────────────────────────────────────────
-def _ensure_dep(package: str, pip_name: str | None = None):
-    if importlib.util.find_spec(package) is None:
-        print(f"[INSTALL] {package} ...")
-        r = subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", pip_name or package],
-                           capture_output=True, text=True)
-        if r.returncode != 0:
-            print(f"[FAIL] {package}: {r.stderr}"); sys.exit(1)
-        print(f"[OK] {package}")
-    else:
-        print(f"[OK] {package} (cached)")
-
-def _ensure_playwright():
-    _ensure_dep("playwright")
-    try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            if not os.path.exists(p.chromium.executable_path):
-                raise FileNotFoundError
-        print("[OK] Chromium (cached)")
-    except Exception:
-        print("[INSTALL] Chromium (first download ~150MB) ...")
-        r = subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"],
-                           capture_output=False, text=True)
-        if r.returncode != 0:
-            print("[FAIL] Chromium install"); sys.exit(1)
-        print("[OK] Chromium")
-
 # ─── 依赖检测（不自动安装，缺失时提示用户手动安装）──────────────────────────
 def _check_dep(package: str, pip_name: str | None = None):
     if importlib.util.find_spec(package) is None:
@@ -102,8 +82,6 @@ def _check_deps():
               "Or use a venv: python -m venv .venv && .venv/bin/pip install playwright httpx beautifulsoup4 && .venv/bin/playwright install chromium")
         sys.exit(1)
     print("[OK] All dependencies satisfied")
-
-_check_deps()
 
 # ─── 正式 import ──────────────────────────────────────────────────────────────
 import asyncio, argparse
@@ -967,24 +945,28 @@ async def main_async(product_key: str, max_pages: int, output: str, args):
         print("\n" + "=" * 60 + "\n" + md)
 
 def main():
-    parser = argparse.ArgumentParser(description="Aliyun & Huawei & AWS doc scraper v4")
+    parser = argparse.ArgumentParser(description="Cloud product doc scraper v4.6.0")
     parser.add_argument("--product", default="",
         help="Product key. Available:\n" + "\n".join(f"  {k:<15} {v['name']}" for k, v in PRODUCTS.items()))
     parser.add_argument("--list", action="store_true", help="List all products")
     parser.add_argument("--output", default="", help="Output file path")
     parser.add_argument("--max-pages", type=int, default=12, help="Max core pages per provider (default 12)")
-    parser.add_argument("--providers", default="aliyun,huawei", help="Comma-separated providers to compare (default: aliyun,huawei). Options: aliyun,huawei,aws")
+    parser.add_argument("--providers", default="aliyun,huawei", help="Comma-separated providers to compare (default: aliyun,huawei). Options: aliyun,huawei,aws,tencent")
     parser.add_argument("--stealth", action="store_true", help="Enable extended browser context for JS-heavy sites with rendering compatibility issues (use with caution)")
     args = parser.parse_args()
 
     if args.list:
         print("\nAvailable products:\n")
         for k, v in PRODUCTS.items():
-            providers = [p for p in ["aliyun", "huawei", "aws"] if p in v]
+            providers = [p for p in ["aliyun", "huawei", "aws", "tencent"] if p in v]
             print(f"  {k:<15} {v['name']:<50} providers: {','.join(providers)}")
         print(); return
     if not args.product:
         parser.print_help(); sys.exit(1)
+
+    # Check dependencies after argparse (allows --help without deps)
+    _check_deps()
+
     asyncio.run(main_async(args.product, args.max_pages, args.output, args))
 
 if __name__ == "__main__":
