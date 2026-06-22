@@ -68,7 +68,10 @@ def check_playwright():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(add_help=False)
+    parser = argparse.ArgumentParser(
+        description='free-web-search: Lightweight Python web search (Bing CN / DDG)',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("query", nargs="*")
     parser.add_argument("--max", type=int, default=DEFAULT_MAX, dest="max_results")
     parser.add_argument("--full", type=int, default=DEFAULT_FULL)
