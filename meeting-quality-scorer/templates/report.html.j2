@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>会议质量评分报告</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<style>
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:2rem;background:#f8f9fa}
+.card{background:#fff;border-radius:8px;padding:1.5rem;margin-bottom:1rem;box-shadow:0 2px 4px rgba(0,0,0,.08)}
+.score-big{font-size:4rem;font-weight:700;color:{% if total_score >= 80 %}#22c55e{% elif total_score >= 60 %}#f59e0b{% else %}#ef4444{% endif %}}
+.badge{display:inline-block;padding:.25rem .75rem;border-radius:999px;font-size:.85rem;font-weight:600;margin:.25rem}
+.red{background:#fee2e2;color:#dc2626}.yellow{background:#fef3c7;color:#d97706}.green{background:#dcfce7;color:#16a34a}
+table{width:100%;border-collapse:collapse}th,td{padding:.75rem;text-align:left;border-bottom:1px solid #e5e7eb}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1 style="margin:0 0 .5rem">会议质量评分报告</h1>
+  <p style="color:#6b7280;margin:0">{{ date }}</p>
+</div>
+<div class="card" style="text-align:center">
+  <div class="score-big">{{ total_score }}</div>
+  <div style="color:#6b7280;margin-top:.5rem">综合得分 / 100</div>
+  {% if degraded %}<p style="color:#d97706;font-size:.9rem">⚠️ 仅评估 2 个维度（无说话人标签）</p>{% endif %}
+</div>
+<div class="card">
+  <h2>维度得分</h2>
+  <canvas id="radar" height="300"></canvas>
+</div>
+<div class="card">
+  <h2>决议明细</h2>
+  {% if decisions %}
+  <table>
+    <tr><th>议题</th><th>状态</th><th>负责人</th><th>截止</th></tr>
+    {% for d in decisions %}
+    <tr>
+      <td>{{ d.topic }}</td>
+      <td>{% if d.decided %}<span class="badge green">已决议</span>{% else %}<span class="badge red">未决议</span>{% endif %}</td>
+      <td>{{ d.owner or '-' }}</td>
+      <td>{{ d.deadline or '-' }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}<p style="color:#6b7280">未检测到明确议题</p>{% endif %}
+</div>
+{% if speaker_stats %}
+<div class="card">
+  <h2>参与分布</h2>
+  <canvas id="bar" height="200"></canvas>
+</div>
+{% endif %}
+<div class="card">
+  <h2>改进建议</h2>
+  <ul>{% for tip in recommendations %}<li>{{ tip }}</li>{% endfor %}</ul>
+</div>
+<script>
+new Chart(document.getElementById('radar'), {
+  type: 'radar',
+  data: {
+    labels: ['决议明确度', '时间效率', '参与均衡度'],
+    datasets: [{
+      label: '得分',
+      data: [{{ decision_score or 0 }}, {{ time_score or 0 }}, {{ participation_score or 0 }}],
+      backgroundColor: 'rgba(99,102,241,.2)',
+      borderColor: 'rgba(99,102,241,1)',
+      pointBackgroundColor: 'rgba(99,102,241,1)'
+    }]
+  },
+  options: {scales: {r: {min: 0, max: 100, ticks: {stepSize: 25}}}}
+});
+{% if speaker_stats %}
+new Chart(document.getElementById('bar'), {
+  type: 'bar',
+  data: {
+    labels: {{ speaker_stats.keys()|list|tojson }},
+    datasets: [{label: '字数', data: {{ speaker_stats.values()|list|tojson }},
+      backgroundColor: 'rgba(99,102,241,.7)'}]
+  },
+  options: {plugins: {legend: {display: false}}}
+});
+{% endif %}
+</script>
+</body>
+</html>

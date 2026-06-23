@@ -128,15 +128,15 @@ class TestLLMClient:
         error_response = MagicMock()
         error_response.status_code = 503
 
-        from openai import APIError
+        from openai import APIStatusError
 
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = '{"result": "success"}'
 
         mock_client.chat.completions.create.side_effect = [
-            APIError("Service unavailable", response=error_response, body=None),
-            APIError("Service unavailable", response=error_response, body=None),
+            APIStatusError("Service unavailable", response=error_response, body=None),
+            APIStatusError("Service unavailable", response=error_response, body=None),
             mock_response
         ]
 

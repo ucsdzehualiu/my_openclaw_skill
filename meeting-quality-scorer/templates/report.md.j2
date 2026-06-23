@@ -1,0 +1,52 @@
+# 会议质量评分报告
+
+**日期**: {{ date }}
+**总分**: {{ total_score }}/100 {% if total_score >= 80 %}✅{% elif total_score >= 60 %}🟡{% else %}❌{% endif %}
+{% if degraded %}> ⚠️ 仅评估 2 个维度（无说话人标签）。要获得完整评分，请用 WhisperX 重新转录。{% endif %}
+
+## 各维度得分
+
+| 维度 | 得分 | 评级 |
+|---|---|---|
+| 决议明确度 | {{ decision_score if decision_score is not none else 'N/A' }}/100 | {{ '✅' if decision_score and decision_score >= 70 else '🟡' if decision_score and decision_score >= 40 else '❌' if decision_score else '-' }} |
+| 时间效率 | {{ time_score if time_score is not none else 'N/A' }}/100 | {{ '✅' if time_score and time_score >= 80 else '🟡' if time_score and time_score >= 60 else '❌' if time_score else '-' }} |
+| 参与均衡度 | {{ participation_score if participation_score is not none else 'N/A（无说话人标签）' }}/100 | {{ '✅' if participation_score and participation_score >= 70 else '🟡' if participation_score and participation_score >= 40 else '❌' if participation_score else '-' }} |
+
+## 决议分析
+
+{% if decisions %}
+{% for d in decisions %}
+- **{{ d.topic }}**: {% if d.decided %}✅ 已决议{% if d.owner %} — 负责人: {{ d.owner }}{% endif %}{% if d.deadline %} — 截止: {{ d.deadline }}{% endif %}{% else %}⚠️ 未形成决议{% endif %}
+{% endfor %}
+{% else %}
+> ⚠️ 未检测到明确议题
+{% endif %}
+
+## 时间效率
+
+{% if filler_segments %}
+检测到 {{ filler_segments|length }} 段闲聊/跑题内容：
+{% for f in filler_segments %}
+- "{{ f.text[:80] }}…" ({{ f.reason }})
+{% endfor %}
+{% else %}
+✅ 未检测到明显闲聊或跑题内容
+{% endif %}
+
+## 参与均衡度
+
+{% if speaker_stats %}
+| 发言人 | 字数 | 占比 |
+|---|---|---|
+{% for name, count in speaker_stats.items() %}
+| {{ name }} | {{ count }} | {{ (count / total_chars * 100)|round(1) }}% |
+{% endfor %}
+{% else %}
+> 无说话人标签，跳过此维度
+{% endif %}
+
+## 改进建议
+
+{% for tip in recommendations %}
+- {{ tip }}
+{% endfor %}
