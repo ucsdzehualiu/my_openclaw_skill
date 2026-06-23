@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+*.yaml
+!config.example.yaml
+htmlcov/
+.pytest_cache/
+*.html
