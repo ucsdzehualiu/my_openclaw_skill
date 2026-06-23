@@ -2,8 +2,10 @@
 
 精选 Claude 技能集合，涵盖 Web 搜索、金融分析、提示词优化、云产品对比、照片地理标记等实用场景。全部开源，即装即用。
 
+[![CI Tests](https://github.com/ucsdzehualiu/my_openclaw_skill/actions/workflows/test.yml/badge.svg)](https://github.com/ucsdzehualiu/my_openclaw_skill/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-blue.svg)](LICENSE)
 [![ClawHub](https://img.shields.io/badge/ClawHub-Published-green.svg)](https://clawhub.com)
+[![Skills](https://img.shields.io/badge/skills-8-brightgreen.svg)](#-技能列表)
 
 ---
 

@@ -1,0 +1,112 @@
+name: Test Skills
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-python-skills:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.10', '3.12']
+        skill: ['free-web-search', 'cloud-product-analysis', 'geo-tag-photos']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies for ${{ matrix.skill }}
+      run: |
+        cd ${{ matrix.skill }}
+        pip install -r requirements.txt
+        python -m playwright install chromium
+
+    - name: Run tests
+      run: |
+        cd ${{ matrix.skill }}
+        if [ -d "tests" ]; then
+          pytest tests/ -v
+        fi
+
+    - name: Smoke test
+      run: |
+        cd ${{ matrix.skill }}
+        python scripts/*.py --help
+
+  test-node-skills:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['18', '20', '22']
+        skill: ['free-web-search-js', 'smart-web-search']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Install dependencies for ${{ matrix.skill }}
+      run: |
+        cd ${{ matrix.skill }}
+        npm install
+        npx playwright install chromium
+
+    - name: Run tests
+      run: |
+        cd ${{ matrix.skill }}
+        if [ -f "tests/test.sh" ]; then
+          bash tests/test.sh
+        fi
+
+    - name: Smoke test
+      run: |
+        cd ${{ matrix.skill }}
+        node scripts/search.js --help
+
+  validate-markdown-skills:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Validate SKILL.md frontmatter
+      run: |
+        pip install pyyaml
+        for skill in prompt-optimizer-cn free-finance-analysis hardworker; do
+          python -c "
+import yaml
+import sys
+content = open('$skill/SKILL.md', encoding='utf-8').read()
+parts = content.split('---')
+if len(parts) < 3:
+    print(f'ERROR: $skill/SKILL.md missing frontmatter')
+    sys.exit(1)
+try:
+    meta = yaml.safe_load(parts[1])
+    assert 'name' in meta and 'description' in meta, 'Missing required fields'
+    print(f'✓ $skill/SKILL.md valid')
+except Exception as e:
+    print(f'ERROR: $skill/SKILL.md invalid YAML: {e}')
+    sys.exit(1)
+"
+        done
+
+    - name: Check LICENSE files
+      run: |
+        for skill in */; do
+          if [ ! -f "$skill/LICENSE" ]; then
+            echo "ERROR: $skill missing LICENSE"
+            exit 1
+          fi
+        done
+        echo "✓ All skills have LICENSE"
