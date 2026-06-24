@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>JD 解析报告</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2"></script>
+<script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
+<style>
+body{font-family:sans-serif;max-width:960px;margin:0 auto;padding:2rem;background:#f5f5f5}
+.card{background:#fff;padding:1.5rem;margin-bottom:1rem;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+h2{margin-top:0;color:#333}
+table{width:100%;border-collapse:collapse}
+th,td{padding:.5rem;text-align:left;border-bottom:1px solid #ddd}
+.badge{display:inline-block;padding:.25rem .5rem;border-radius:4px;font-size:.85rem}
+.red{background:#fee;color:#c00}.yellow{background:#ffc;color:#840}.green{background:#efe;color:#060}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>JD 解析报告</h1>
+<p style="color:#666">{{ date }}</p>
+</div>
+
+<div class="card">
+<h2>黑话翻译</h2>
+{% if jargon %}
+<table>
+<tr><th>JD 原文</th><th>实际门槛</th></tr>
+{% for j in jargon %}
+<tr><td>{{ j.jd_text }}</td><td>{{ j.real_requirement }}</td></tr>
+{% endfor %}
+</table>
+{% else %}<p style="color:#999">未检测到明显水分</p>{% endif %}
+</div>
+
+<div class="card">
+<h2>公司体感</h2>
+<p><strong>节奏</strong>: <span class="badge {% if culture.pace == 'high-pressure' %}red{% elif culture.pace == 'normal' %}yellow{% else %}green{% endif %}">{{ culture.pace }}</span></p>
+<p><strong>技术成熟度</strong>: {{ culture.tech_maturity }}</p>
+{% if culture.red_flags %}
+<h3>⚠️ 红旗</h3>
+<ul>{% for f in culture.red_flags %}<li>{{ f }}</li>{% endfor %}</ul>
+{% endif %}
+<canvas id="wordcloud" width="600" height="300"></canvas>
+</div>
+
+{% if resume_match %}
+<div class="card">
+<h2>简历匹配度: {{ resume_match.match_score }}/100</h2>
+<canvas id="match" height="200"></canvas>
+</div>
+{% endif %}
+
+<div class="card">
+<h2>议价信息</h2>
+<p><strong>薪资透明度</strong>: {{ negotiation.salary_transparency }}</p>
+<p><strong>职级明确</strong>: {% if negotiation.level_specified %}是{% else %}否 — 议价空间大{% endif %}</p>
+<p><strong>综合</strong>: {{ negotiation.leverage_summary }}</p>
+</div>
+
+<script>
+var rfk = {{ red_flag_keywords|tojson }};
+var list = Object.entries(rfk).filter(e => e[1] > 0).map(e => [e[0], e[1] * 20]);
+if (list.length) {
+  WordCloud(document.getElementById('wordcloud'), {list, weightFactor: 2});
+}
+{% if resume_match %}
+new Chart(document.getElementById('match'), {
+  type: 'bar',
+  data: {
+    labels: ['硬性满足', '硬性不满足', '软性满足', '软性不满足'],
+    datasets: [{data: [
+      {{ resume_match.hard_met|length }},
+      {{ resume_match.hard_unmet|length }},
+      {{ resume_match.soft_met|length }},
+      {{ resume_match.soft_unmet|length }}
+    ], backgroundColor: ['#4c1', '#c14', '#8c4', '#c84']}]
+  },
+  options: {plugins: {legend: {display: false}}}
+});
+{% endif %}
+</script>
+</body>
+</html>

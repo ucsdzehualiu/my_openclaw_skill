@@ -1,0 +1,69 @@
+# JD 解析报告
+
+**生成时间**: {{ date }}
+
+## 真要求 vs 表面要求
+
+{% if jargon %}
+| JD 原文 | 实际门槛 |
+|---|---|
+{% for j in jargon %}
+| {{ j.jd_text }} | {{ j.real_requirement }} |
+{% endfor %}
+{% else %}
+> 未检测到明显水分要求
+{% endif %}
+
+## 公司体感推断
+
+- **节奏**: {{ culture.pace or 'unknown' }}
+- **技术成熟度**: {{ culture.tech_maturity or 'unknown' }}
+- **业务清晰度**: {{ culture.business_clarity or 'unknown' }}
+
+{% if culture.red_flags %}
+### ⚠️ 红旗信号
+{% for flag in culture.red_flags %}
+- {{ flag }}
+{% endfor %}
+{% else %}
+### ✅ 未检测到明显红旗
+{% endif %}
+
+### 面试时建议问的问题
+{% if culture.candidate_questions %}
+{% for q in culture.candidate_questions %}
+- {{ q }}
+{% endfor %}
+{% else %}
+- 团队规模和组织架构
+- 项目迭代周期
+- on-call 机制
+{% endif %}
+
+## 简历匹配度
+
+{% if resume_match %}
+**匹配分数**: {{ resume_match.match_score }}/100
+
+| 维度 | 满足 | 不满足 |
+|---|---|---|
+| 硬性要求 | {{ resume_match.hard_met|join(', ') or '-' }} | {{ resume_match.hard_unmet|join(', ') or '-' }} |
+| 软性要求 | {{ resume_match.soft_met|join(', ') or '-' }} | {{ resume_match.soft_unmet|join(', ') or '-' }} |
+
+**建议**: {{ resume_match.recommendation }}
+{% else %}
+> 未提供简历，跳过此部分。要获得匹配分析，请用 `--resume-file` 提供简历。
+{% endif %}
+
+## 议价信息
+
+- **薪资透明度**: {{ negotiation.salary_transparency or 'unknown' }}
+- **职级明确性**: {% if negotiation.level_specified %}已明确{% else %}未明确 — 议价空间较大{% endif %}
+- **期权水分**: {{ negotiation.equity_water or 'n/a' }}
+- **急招信号**: {% if negotiation.urgency %}是 — 更有议价优势{% else %}否{% endif %}
+
+**综合评估**: {{ negotiation.leverage_summary or '信息不足，需进一步沟通' }}
+
+---
+
+**Red flag 统计**: {% for kw, cnt in red_flag_keywords.items() if cnt > 0 %}{{ kw }} ×{{ cnt }}, {% endfor %}
