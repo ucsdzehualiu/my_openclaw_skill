@@ -70,7 +70,7 @@ run_test "地理检测日志输出" \
 
 # 7. 正文抓取 - fetch 参数
 run_test "正文抓取 - --fetch 参数" \
-  "node scripts/search.js 'OpenClaw' --max=1 --fetch=1 2>&1" \
+  "node scripts/search.js 'Python' --max=1 --fetch=1 2>&1" \
   "fetch"
 
 # 总结

@@ -485,7 +485,7 @@ PRIORITY_KEYWORDS = [
     (2, ["计费", "定价", "费用", "价格", "版本对比", "版本说明", "pricing", "billing", "edition"]),
     (2, ["组件版本", "版本支持", "引擎版本", "内核版本"]),
     (1, ["应用场景", "使用场景", "适用场景", "最佳实践", "use case", "scenario", "best practice"]),
-    (-1, ["常见问题", "faq", "故障排除", "sdk", "api参考", "错误码", "迁移指南"]),
+    (-1, ["常见问题", "faq", "故障排除", "sdk", "api参考", "api reference", "错误码", "迁移指南"]),
 ]
 
 def score_link(text: str, href: str) -> int:
