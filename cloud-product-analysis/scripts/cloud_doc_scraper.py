@@ -41,6 +41,7 @@ v4 改进（相比 ClawHub v1.0.3）：
 
 # ─── Windows 控制台 UTF-8 修复（在任何 import 之前）────────────────────────────
 import subprocess, sys, os, importlib.util
+from typing import Optional
 
 if sys.platform == "win32":
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -51,7 +52,7 @@ if sys.platform == "win32":
         pass
 
 # ─── 依赖检测（不自动安装，缺失时提示用户手动安装）──────────────────────────
-def _check_dep(package: str, pip_name: str | None = None):
+def _check_dep(package: str, pip_name: Optional[str] = None):
     if importlib.util.find_spec(package) is None:
         print(f"[MISSING] {package} — please run: pip install {pip_name or package}")
         return False
@@ -592,7 +593,7 @@ def denoise_text(text: str) -> str:
             result.append(line); prev_empty = False
     return "\n".join(result)
 
-async def extract_text(page, content_selectors: list | None = None) -> str:
+async def extract_text(page, content_selectors: Optional[list] = None) -> str:
     selectors = content_selectors or (ALIYUN_CONTENT_SELECTORS + HUAWEI_CONTENT_SELECTORS + FALLBACK_CONTENT_SELECTORS)
     for sel in selectors:
         try:
@@ -646,7 +647,7 @@ async def fetch_via_http(url: str) -> str:
 # ─── 带重试的页面抓取 ─────────────────────────────────────────────────────────
 MAX_RETRIES = 2
 
-async def fetch_content(context, url: str, content_selectors: list | None = None,
+async def fetch_content(context, url: str, content_selectors: Optional[list] = None,
                         label: str = "", is_huawei: bool = False) -> str:
     for attempt in range(MAX_RETRIES + 1):
         page = await context.new_page()
@@ -705,8 +706,8 @@ async def fetch_content(context, url: str, content_selectors: list | None = None
 # ─── 单侧完整抓取 ─────────────────────────────────────────────────────────────
 async def scrape_side(context, label: str, doc_url: str, changelog_url: str,
                       nav_selectors: list, max_pages: int,
-                      deep_links: list | None = None,
-                      content_selectors: list | None = None,
+                      deep_links: Optional[list] = None,
+                      content_selectors: Optional[list] = None,
                       is_huawei: bool = False) -> dict:
     result = {"label": label, "doc_url": doc_url, "changelog_url": changelog_url,
               "pages": [], "changelog": "", "toc_total": 0}
