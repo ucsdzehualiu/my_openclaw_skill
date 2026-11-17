@@ -83,22 +83,7 @@ jobs:
       run: |
         pip install pyyaml
         for skill in prompt-optimizer-cn free-finance-analysis hardworker ppt-ai-flavor-remover; do
-          python -c "
-import yaml
-import sys
-content = open('$skill/SKILL.md', encoding='utf-8').read()
-parts = content.split('---')
-if len(parts) < 3:
-    print(f'ERROR: $skill/SKILL.md missing frontmatter')
-    sys.exit(1)
-try:
-    meta = yaml.safe_load(parts[1])
-    assert 'name' in meta and 'description' in meta, 'Missing required fields'
-    print(f'✓ $skill/SKILL.md valid')
-except Exception as e:
-    print(f'ERROR: $skill/SKILL.md invalid YAML: {e}')
-    sys.exit(1)
-"
+          python -c "import yaml,sys; c=open('$skill/SKILL.md',encoding='utf-8').read(); p=c.split('---'); assert len(p)>=3, 'missing frontmatter'; m=yaml.safe_load(p[1]); assert 'name' in m and 'description' in m, 'missing required fields'; print('OK $skill')"
         done
 
     - name: Check LICENSE files
