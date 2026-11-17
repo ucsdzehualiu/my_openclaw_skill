@@ -5,7 +5,7 @@
 [![CI Tests](https://github.com/ucsdzehualiu/my_openclaw_skill/actions/workflows/test.yml/badge.svg)](https://github.com/ucsdzehualiu/my_openclaw_skill/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-blue.svg)](LICENSE)
 [![ClawHub](https://img.shields.io/badge/ClawHub-Published-green.svg)](https://clawhub.com)
-[![Skills](https://img.shields.io/badge/skills-8-brightgreen.svg)](#-技能列表)
+[![Skills](https://img.shields.io/badge/skills-9-brightgreen.svg)](#-技能列表)
 
 ---
 
@@ -21,6 +21,7 @@
 | [**hardworker**](./hardworker) | 1.1.0 | Striver 模式 — 当任务失败、停滞或用户受挫时，强制使用突破方法持续解决问题 | Markdown |
 | [**cloud-product-analysis**](./cloud-product-analysis) | 1.1.0 | 云产品技术文档对比 — 自动抓取阿里云、华为云、AWS、腾讯云官方文档，生成结构化对比 | Python |
 | [**geo-tag-photos**](./geo-tag-photos) | 1.0.1 | 照片地理标记恢复 — AI 视觉识别地标，Nominatim 地理编码，写回 GPS EXIF，默认干运行 + 强制备份 | Python |
+| [**ppt-ai-flavor-remover**](./ppt-ai-flavor-remover) | 1.0.0 | 去除 PPT/文档中的 AI 味 — 按解决方案架构师提交客户正式材料的标准重写：语气、标题、句式、事实边界、版式统一、备注结构、交付前五轮自检 | Markdown |
 
 ---
 
@@ -187,7 +188,27 @@ python scripts/cloud_doc_scraper.py \
 
 ---
 
-### 6. geo-tag-photos
+### 6. ppt-ai-flavor-remover
+
+**适用场景**：PPT、提案、汇报材料读起来“太 AI 了”——口号式标题、排比金句、绝对化承诺、模糊归因、装饰性版式
+
+**核心规范**（十个部分）：
+1. 写作目标：解决方案架构师提交客户正式材料的语气
+2. 正文只写事实、数据、动作和边界
+3. 标题用名词短语，不用疑问式、口号式标题
+4. 句子平铺直叙，术语放备注解释
+5. 事实/建议/待验证三分开，不作绝对化承诺
+6. 版式统一：网格、字号、品牌色、矢量图，不用照片和 emoji
+7. 备注固定三段：讲稿 / 名词与背景 / 数据出处与口径
+8. 禁用词表：赋能、闭环、护城河、“不是……而是……”等
+9. 收尾只写具体工作安排（主体、时间、范围、验收指标）
+10. 交付前五轮自检：语气、事实、边界、一致性、版式
+
+**触发词**：去除AI味 / 去AI味 / 太AI了 / PPT文风 / rewrite PPT tone
+
+---
+
+### 7. geo-tag-photos
 
 **适用场景**：老照片丢失了 GPS 信息，想通过 AI 视觉识别地标恢复位置
 
@@ -257,7 +278,7 @@ clawhub publish ./<skill>/ --version x.y.z --tags latest
 
 ## 📄 许可证
 
-- **Markdown 技能**（prompt-optimizer-cn, free-finance-analysis, hardworker）：MIT
+- **Markdown 技能**（prompt-optimizer-cn, free-finance-analysis, hardworker, ppt-ai-flavor-remover）：MIT
 - **Python/Node 技能**：
   - geo-tag-photos: MIT-0（完全公共领域）
   - cloud-product-analysis: Apache-2.0

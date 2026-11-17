@@ -82,7 +82,7 @@ jobs:
     - name: Validate SKILL.md frontmatter
       run: |
         pip install pyyaml
-        for skill in prompt-optimizer-cn free-finance-analysis hardworker; do
+        for skill in prompt-optimizer-cn free-finance-analysis hardworker ppt-ai-flavor-remover; do
           python -c "
 import yaml
 import sys
@@ -104,6 +104,7 @@ except Exception as e:
     - name: Check LICENSE files
       run: |
         for skill in */; do
+          [ -f "$skill/SKILL.md" ] || continue
           if [ ! -f "$skill/LICENSE" ]; then
             echo "ERROR: $skill missing LICENSE"
             exit 1
