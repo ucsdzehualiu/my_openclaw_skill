@@ -15,8 +15,9 @@ jobs:
       id: parse
       run: |
         TAG="${GITHUB_REF#refs/tags/}"
-        SKILL=$(echo $TAG | cut -d'/' -f1)
-        VERSION=$(echo $TAG | cut -d'v' -f2)
+        SKILL="${TAG%%/*}"
+        VERSION="${TAG##*/}"
+        VERSION="${VERSION#v}"
         echo "skill=$SKILL" >> $GITHUB_OUTPUT
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
@@ -25,7 +26,7 @@ jobs:
         CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
       run: |
         npm install -g @clawhub/cli
-        clawhub login --token $CLAWHUB_TOKEN
-        clawhub publish ./${{ steps.parse.outputs.skill }} \
+        npx --yes @clawhub/cli login --token $CLAWHUB_TOKEN
+        npx --yes @clawhub/cli publish ./${{ steps.parse.outputs.skill }} \
           --version ${{ steps.parse.outputs.version }} \
           --tags latest
