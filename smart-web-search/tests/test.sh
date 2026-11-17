@@ -68,10 +68,10 @@ run_test "地理检测日志输出" \
   "node scripts/search.js 'test' --max=1 --fetch=0 2>&1" \
   "\[地理\]"
 
-# 7. 正文抓取 - fetch 参数
-run_test "正文抓取 - --fetch 参数" \
-  "node scripts/search.js 'Python' --max=1 --fetch=1 2>&1" \
-  "fetch"
+# 7. 正文抓取 - fetch 模块直接抓取稳定 URL（不依赖搜索引擎结果）
+run_test "正文抓取 - fetch 模块" \
+  "node -e \"import('./scripts/fetch.js').then(async m => { const r = await m.fetchUrl('https://example.com', 2000); console.log(r.content ? 'FETCH_OK len=' + r.content.length : 'FETCH_EMPTY'); })\" 2>&1" \
+  "FETCH_OK"
 
 # 总结
 echo ""
